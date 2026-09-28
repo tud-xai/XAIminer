@@ -1,0 +1,54 @@
+# Kopiere diese Datei nach config.toml und passe sie an.
+
+[paths]
+# Wurzelverzeichnis mit den Datensätzen (jeweils <name>/{originals,xai,inference,metadata.json}).
+# Default (auskommentiert): ../../datasets relativ zu xai_viewer/.
+# datasets_root = "/pfad/zu/datasets"
+
+# Anforderungskatalog für das Prüfprotokoll, bilingual de/en. Default (auskommentiert):
+# requirements.toml neben app.py.
+# requirements_file = "/pfad/zu/requirements.toml"
+
+# Konten der bekannten Nutzer:innen (siehe BETRIEB.md „Nutzer und Konten"). Default
+# (auskommentiert): accounts.toml neben app.py. Alternativ XAI_ACCOUNTS_FILE.
+# accounts_file = "/pfad/zu/accounts.toml"
+
+# Impressum, Betreiber-Teil der Datenschutzerklärung und Kontakt-Link dieser Instanz (siehe
+# legal.example.toml). Default (auskommentiert): legal.toml neben app.py. Alternativ XAI_LEGAL_FILE.
+# legal_file = "/pfad/zu/legal.toml"
+
+# Verzeichnis für die Aufzeichnungen des Tracking-Modus (eine .jsonl-Datei je Sitzung, siehe
+# BETRIEB.md „Tracking-Modus"). Default (auskommentiert): tracking/ neben app.py — das liegt IM
+# Deployment-Baum und wäre bei `deploy.py --purge` weg; auf dem Server also nach außen legen.
+# Alternativ XAI_TRACKING_DIR.
+# tracking_dir = "/pfad/zu/tracking"
+
+[demo]
+# Öffentlicher Demo-Modus: anonyme Besucher bekommen eine private, wegwerfbare Sandbox,
+# interne Hilfswerkzeuge sind gesperrt, Mengen- und Größengrenzen greifen, Suchmaschinen
+# werden ausgesperrt. Lokal zum Ausprobieren auch per Umgebungsvariable:
+#   XAI_DEMO_MODE=1 flask --app app run
+# enabled = true
+
+[tracking]
+# Tracking-Modus für begleitete Usability-Sitzungen VERFÜGBAR machen (siehe BETRIEB.md
+# „Tracking-Modus"). Ohne diesen Schalter enthält die ausgelieferte Seite keinerlei
+# Tracking-Code — nur so bleibt die Aussage der Datenschutzerklärung für die öffentliche
+# Demo wahr. Verfügbar heißt noch nicht an: eingeschaltet wird je Sitzung per
+# Strg+Alt+Umschalt+T, sichtbar am „(R)" hinter dem Produktnamen.
+# Auch per Umgebungsvariable: XAI_TRACKING=1 flask --app app run
+# enabled = true
+
+[dataset]
+# Aktiver Datensatz, solange im Projekt-Dialog noch keine Auswahl getroffen wird (projektglobal).
+default = "RailPer"
+
+[dev]
+# NUR für lokale Entwicklung: Bilder auch dann ausliefern, wenn der Pfad im Datensatz über
+# einen Symlink führt (z.B. XAI-Renderings, die auf einem gemounteten Gruppenlaufwerk liegen
+# und zu groß zum Kopieren sind). Ohne diesen Schalter prüft die App den *aufgelösten* Pfad
+# und antwortet auf solche Anfragen mit 403.
+# Das Produktivsystem hat keine `xai_viewer/config.toml` (deploy.py schließt sie aus und
+# konfiguriert die App über Umgebungsvariablen) — der Schalter kann dort also nicht greifen.
+# Schutz vor Traversal über die URL („..") bleibt in beiden Fällen aktiv.
+# follow_dataset_symlinks = true

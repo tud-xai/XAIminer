@@ -1,0 +1,525 @@
+# German language catalog (i18n).
+# Nested tables are flattened to dot-notation keys on load (e.g. filter.cat.umgebung.label).
+# Placeholders in curly braces (e.g. {n}, {pid}, {user}) are filled via str.format.
+# de and en MUST share the same set of keys (consistency self-test).
+
+[common]
+cancel = "Abbrechen"
+close = "Schließen"
+original = "Original-Bilder"
+soon = "Demnächst"
+true_label = "wahr"
+file_label = "Datei"
+prediction_label = "Vorhersage"
+confidences_label = "Konfidenzen"
+
+[nav]
+logout = "Abmelden"
+notes = "Notizen"
+collections = "Sammlungen"
+demonstrator_tag = "Demonstrator"
+# Tooltip des „(R)"-Markers, der anzeigt, dass diese Sitzung aufgezeichnet wird (tracking.py).
+tracking_title = "Diese Sitzung wird zu Usability-Zwecken aufgezeichnet (Strg+Alt+Umschalt+T beendet die Aufzeichnung)."
+language = "Sprache"
+project_type_pruefung = "Prüfung"
+project_type_test = "Exploration"
+
+[help]
+button = "Hilfe"
+title = "Hilfe"
+close = "Schließen"
+not_implemented = "Für diesen Bereich gibt es noch keine Hilfe — das Hilfesystem ist noch nicht umgesetzt."
+contact = "Bei Fragen wenden Sie sich gern an die Entwickler."
+
+# Guide pages (/docs/<page>, docs_render.py); /docs/overview is the target of the help button.
+[docs]
+german_only = "Diese Anleitung gibt es derzeit nur auf Deutsch."
+
+[login]
+title = "Anmeldung"
+guest_heading = "Als Gast anmelden"
+guest_lead = "Kein Konto nötig — Sie wählen nur einen Anzeigenamen, der als Autor an Ihren Notizen erscheint."
+guest_name = "Anzeigename"
+guest_name_ph = "z. B. Vorname oder Kürzel"
+guest_submit = "Als Gast anmelden"
+guest_ttl = "Als Gast erzeugte Inhalte werden nach {h} Stunden automatisch gelöscht."
+guest_local = "Als Gast erzeugte Inhalte bleiben an diesen Namen gebunden."
+guest_name_taken = "Dieser Name gehört zu einem registrierten Konto. Bitte einen anderen Namen wählen – oder sich unten mit Passwort anmelden."
+divider = "oder"
+account_heading = "Als registrierter Nutzer anmelden"
+username = "Benutzername"
+username_ph = "Benutzername eingeben"
+password = "Passwort"
+password_ph = "Passwort eingeben"
+submit = "Anmelden"
+failed = "Benutzername oder Passwort stimmt nicht."
+rate_limited = "Zu viele Anmeldeversuche. Bitte kurz warten."
+request_prompt = "Noch kein Konto?"
+request_link = "Login anfragen"
+
+[demo]
+note_limit = "Im Demo-Modus sind höchstens {n} Notizen je Datensatz möglich. Bitte eine bestehende löschen."
+catalog_limit = "Der Anforderungskatalog ist im Demo-Modus auf {n} Zeichen begrenzt."
+tool_blocked = "Im Demo-Modus abgeschaltet. Dieses Werkzeug arbeitet auf gemeinsamen echten Arbeitsdaten ohne Eigentümerbegriff und ist in der öffentlichen Demo deshalb gesperrt."
+
+[role]
+page_title = "Tätigkeitsfeld"
+heading = "Tätigkeitsfeld auswählen"
+greeting = "Hallo {user}, bitte wählen Sie Ihre Rolle."
+gutachter = "Gutachter"
+gutachter_desc = "Sicherheitsprüfung und Bewertung KI-basierter Systeme."
+validierer = "Validierer"
+validierer_desc = "Modelle und ihre Erklärungen prüfen, Anforderungen bewerten, Prüfbericht führen."
+entwickler = "Entwickler"
+entwickler_desc = "Eigene Modelle einbringen und vergleichen."
+unavailable = "{role}-Modus ist in dieser Version noch nicht verfügbar."
+
+[project]
+page_title = "Projekt"
+heading = "Analyseprojekt"
+subtitle = "Bestehendes Projekt laden oder neues Projekt anlegen."
+load_existing = "Vorhandenes Projekt laden"
+load_existing_desc = "Gespeicherte Prüfvorgänge fortsetzen."
+load_btn = "Projekt laden"
+load_later = "Wird in einer späteren Version verfügbar."
+new = "Neues Projekt anlegen"
+name_label = "Projektname"
+dataset_label = "Datensatz"
+dataset_help = "Auf dem Server verfügbare Datensätze (Verzeichnisse mit metadata.json)."
+dataset_none = "Kein Datensatz gefunden – zuerst tools/build_metadata.py ausführen."
+type_label = "Projekttyp"
+type_test = "Freie Exploration"
+type_test_desc = "– Prüfbericht ist nicht primäres Ziel"
+type_pruefung = "Formale Prüfung"
+type_pruefung_desc = "– Prüfbericht wird angestrebt"
+start = "Starten"
+default_name_prefix = "Analyse"
+
+[setup_error]
+page_title = "Einrichtung erforderlich"
+heading = "Datensatz-Metadaten fehlen"
+body = "Die Datei <code>metadata.json</code> für den Datensatz <strong>{dataset}</strong> wurde nicht gefunden. Sie muss einmalig generiert werden und liegt außerhalb des Repos (versionierte Rohdaten werden nicht mit eingecheckt)."
+missing_label = "Fehlende Datei:"
+solution_label = "Lösung – einmalig aus <code>xai_viewer/</code> ausführen:"
+command = "python tools/build_metadata.py {dataset}"
+reload_hint = "Danach die Seite neu laden. Weitere Details in der"
+readme_link = "Installationsanleitung"
+retry = "Erneut versuchen"
+choose_dataset = "Anderen Datensatz wählen"
+
+[workspace]
+page_title = "Arbeitsbereich"
+new_panel = "Neues Panel"
+panel_limit = "Höchstzahl an Panels erreicht ({max})."
+panel_show = "Einblenden"
+panel_hide = "Ausblenden"
+adopt_base = "Basisbilder übernehmen"
+adopt_base_title = "Alle Panels beziehen dann ihre Modell-Konfiguration und Basisbilder vom ganz linken Panel."
+link_all = "Alle koppeln"
+unlink_all = "Alle entkoppeln"
+link_all_title = "Alle Panels koppeln (Scroll + Einzelbild-Navigation gemeinsam)"
+unlink_all_title = "Alle Panels entkoppeln"
+layout_scroll = "Scrollen"
+layout_fit = "Einpassen"
+layout_toggle_title = "Umschalten: Panels auf Bildschirmbreite quetschen vs. horizontal scrollen"
+no_visible_prefix = "Keine sichtbaren Panels."
+no_visible_suffix = "anlegen oder ein Panel einblenden."
+
+[sync]
+title = "Verlinkte Einzelbild-Panels synchron durchschalten (auch mit ← / →)"
+label = "synchron"
+# Eigene Namen für die beiden Pfeil-Schaltflächen: der Tooltip oben sitzt auf der Gruppe, die
+# Buttons selbst enthalten nur ein Icon und hatten damit gar keinen Namen (Screenreader; im
+# Tracking als blankes „BUTTON" aufgefallen, 2026-09-21).
+prev = "Vorheriges Bild (alle gekoppelten Panels)"
+next = "Nächstes Bild (alle gekoppelten Panels)"
+
+[single]
+back_to_gallery = "Zurück zur Galerie"
+prev = "Vorheriges Bild"
+next = "Nächstes Bild"
+prev_linked = "Vorheriges Bild (Panel gekoppelt: schaltet alle gekoppelten Panels)"
+next_linked = "Nächstes Bild (Panel gekoppelt: schaltet alle gekoppelten Panels)"
+original = "Original-Bild"
+
+[gallery]
+click_fullscreen = "(klicken für Vollbild)"
+
+[gallery.image_count]
+one = "{n} Bild"
+other = "{n} Bilder"
+
+[crp]
+concept_select = "Konzept (nach Relevanz)"
+view_select = "Bildtyp"
+rank = "Rang"
+concept = "Konzept"
+relevance = "Relevanz"
+heatmap = "Heatmap"
+grid = "Beispiele"
+
+[craft]
+select = "Ansicht"
+map = "Attribution-Map"
+concept = "K"
+importance = "Imp"
+share = "Anteil"
+concept_tip = "Konzept — ein vom Modell gelerntes, wiederkehrendes Bildmuster (CRAFT)."
+importance_tip = "Imp = globale Wichtigkeit des Konzepts für die Klasse, modellweit und bildunabhängig (0–100 %)."
+activation_tip = "Anteil dieses Konzepts an der gesamten Konzept-Aktivierung dieses Bildes. Rohwert:"
+
+[panel]
+config_title = "Konfigurieren (Filter, Modell, XAI)"
+config_pending = "Konfiguration ausstehend."
+duplicate = "Panel duplizieren"
+hide = "Panel ausblenden"
+delete = "Panel löschen"
+delete_confirm = "Panel P{pid} wirklich löschen?"
+filter_active = "Filter aktiv: {summary}"
+no_match = "Kein Bild erfüllt die Filterkriterien."
+no_xai = "kein XAI"
+no_xai_title = "XAI-Bild für diese Kombination nicht verfügbar"
+
+[panel.link]
+unlink_title = "Kopplung aufheben"
+link_title = "Mit anderen verlinkten Panels koppeln (Galerie-Scroll + Einzelbild-Durchschalten)"
+
+[config]
+title = "Panel P{pid} konfigurieren"
+model = "KI-Modell"
+level = "Genauigkeit"
+display = "Anzeige"
+source = "Basisbilderquelle"
+source_own = "Eigener Filter"
+source_panel = "Panel P{pid} ({descr})"
+source_collection = "Sammlung „{title}“ ({count} Bilder)"
+source_info = "„Eigener Filter“ = Basisbildmenge aus den Filtern unten. Ein anderes Panel = dessen gefilterte Basisbildmenge (inkl. Reihenfolge) übernehmen und mit der Konfiguration dieses Panels darstellen; die eigenen Filter sind dann inaktiv."
+source_info_followers = "Dieses Panel ist Basisbilderquelle für andere Panels und kann daher keine fremde Quelle übernehmen."
+filter_heading = "Filter"
+filter_hint = "(leer = keine Einschränkung)"
+filter_inactive = "– inaktiv: Basisbildmenge stammt aus anderer Basisbilderquelle"
+classification_note = "Korrektheit bezieht sich auf Modell + Genauigkeit dieses Panels."
+from = "von"
+to = "bis"
+apply = "Anwenden"
+xai_reset_hint = "Methode für dieses Modell nicht verfügbar – auf Original zurückgesetzt."
+modelcard = "Modellüberblick"
+modelcard_heading = "Auswertungsumfang"
+modelcard_hint = "(genau eine Kategorie; Prozentwert = Accuracy dieser Teilmenge)"
+modelcard_all = "Alle Bilder"
+
+[modelcard]
+accuracy = "Accuracy"
+accuracy_title = "Aus den Vorhersagen des aktuellen Auswertungsumfangs berechnet – nicht die nominale Test-Accuracy aus den Modell-Metadaten."
+evaluated = "ausgewertet"
+predicted = "Vorhersage"
+actual = "Wahre Klasse"
+meta_heading = "Modell-Metadaten"
+
+[modelcard.meta]
+params = "Parameter"
+epochs = "Epochen"
+trained_at = "Trainiert am"
+algorithm = "Trainingsalgorithmus"
+train_dataset = "Trainingsdatensatz"
+test_dataset = "Testdatensatz"
+nominal_accuracy = "Validierungs-Accuracy"
+
+[notes]
+toggle_title = "Notizen ein-/ausblenden (n)"
+close_dock_title = "Schließen (Esc)"
+sidebar_title = "Notizen"
+new = "Neue Notiz"
+new_title = "Neue Notiz"
+edit_title = "Notiz {nid} bearbeiten"
+empty = "Noch keine Notizen für diesen Datensatz."
+edit = "Notiz bearbeiten"
+delete = "Notiz löschen"
+delete_confirm = "Notiz wirklich löschen?"
+discard_confirm = "Ungespeicherte Änderungen verwerfen?"
+save = "Speichern"
+title_label = "Titel"
+title_ph = "Kurzer, prägnanter Titel (max. {max} Zeichen)"
+text_label = "Beschreibung (optional)"
+text_ph = "Erkenntnis / Beobachtung festhalten …"
+refpoints_heading = "Bezugspunkte"
+add_refpoints = "Bezugspunkte hinzufügen"
+existing_refpoints = "Bestehende Bezugspunkte"
+keep_hint = "Haken entfernen, um einen Bezugspunkt zu löschen."
+ref_refresh = "auf aktuellen Workspace aktualisieren"
+no_refpoints = "Keine Bezugspunkte."
+from_panels = "Aus den aktuellen Panels"
+ref_workspace = "Gesamte Panel-Konfiguration ({panels})"
+ref_workspace_hint = "Hält fest, welche Panels es gibt, wie sie konfiguriert sind und welches Bild (inkl. XAI-Darstellung) sie gerade zeigen."
+ref_current_image = "Aktuelles Bild in P{pid}: {image_id} ({descr})"
+image_ids_label = "Bild-IDs (frei)"
+image_ids_ph = "z. B. railper_0001, railper_0042"
+image_ids_hint = "Durch Komma oder Leerzeichen getrennt; unbekannte IDs werden verworfen."
+ref_models = "KI-Modelle (allgemein)"
+ref_methods = "XAI-Methoden (allgemein)"
+ref_collections = "Sammlungen"
+ref_collections_hint = "Eine referenzierte Sammlung wird gegen verändernde Verwaltungsoperationen geschützt — sie bleibt also das, worüber die Notiz spricht."
+ref_collection_in_panel = "in einem Panel offen"
+open_collection_title = "Klicken: Sammlung in einem neuen Panel öffnen"
+load_ws_title = "Klicken: diese Panel-Konfiguration laden (ersetzt die aktuellen Panels)"
+load_ws_confirm = "Aktuelle Panels verwerfen und die gespeicherte Panel-Konfiguration laden?"
+open_image_title = "Klicken: Bild in einem Panel öffnen"
+
+[notes.noref]
+heading = "Notiz ohne Bezugspunkt speichern?"
+body = "Diese Notiz hält nicht fest, worauf sie sich bezieht. Erfahrungsgemäß ist eine Woche später nicht mehr nachvollziehbar, welche Bilder, Modelle oder Panel-Konfiguration gemeint waren."
+hint = "„Gesamte Panel-Konfiguration“ oben im Formular hält den aktuellen Arbeitsstand mit einem Klick fest."
+back = "Zurück zum Formular"
+save = "Trotzdem speichern"
+
+[notes.target]
+heading = "Bild {image_id} öffnen in …"
+new_panel = "Neues Panel"
+open = "Öffnen"
+hint = "Das Bild wird in der Einzelbildansicht geöffnet; das Ziel-Panel wird auf die gespeicherte Darstellung (Modell/Genauigkeit/XAI) umgestellt und seine Filter werden geleert (Galerie zeigt danach die ungefilterte Bildmenge in dieser Darstellung)."
+
+[notes.ref]
+image_title = "Bezugspunkt: Bild"
+workspace_title = "Bezugspunkt: Gesamte Panel-Konfiguration (Momentaufnahme)"
+panel_config_title = "Bezugspunkt: Panel-Konfiguration (Momentaufnahme)"
+model_title = "Bezugspunkt: KI-Modell"
+method_title = "Bezugspunkt: XAI-Methode"
+collection_title = "Bezugspunkt: Sammlung ({count} Bilder)"
+collection_gone = "Sammlung {cid} (gelöscht)"
+collection_gone_title = "Bezugspunkt: Sammlung – existiert nicht mehr"
+
+[report_entry]
+new = "Neuer Prüfberichtseintrag"
+new_title = "Neuer Prüfberichtseintrag"
+edit_title = "Prüfberichtseintrag {nid} bearbeiten"
+badge = "Prüfberichtseintrag"
+checkbox = "Prüfberichtseintrag"
+
+[protocol]
+requirements_heading = "Anforderungen"
+requirements_hint = "Pro Anforderung angeben, ob sie erfüllt oder nicht erfüllt ist. Nichts ankreuzen = keine Angabe. Volltext per Mouseover oder über das (i)."
+no_requirements = "Kein Anforderungskatalog geladen."
+info_title = "Anforderungskatalog"
+col_req = "Nr."
+col_met = "erfüllt"
+col_unmet = "nicht erfüllt"
+col_text = "Anforderung"
+report = "Prüfbericht"
+report_title = "Prüfbericht aus allen Prüfberichtseinträgen erstellen (neuer Tab)"
+
+[protocol.catalog]
+edit_title = "Anforderungskatalog bearbeiten (eigene Fassung für diesen Datensatz)"
+heading = "Anforderungskatalog bearbeiten"
+state_master = "Standard"
+state_custom = "Eigene Fassung"
+warning = "Achtung: Änderungen können zu Inkonsistenzen mit bereits angelegten Notizen führen — eine umformulierte Anforderung ändert nachträglich die Bedeutung bestehender Bewertungen. Wird eine Anforderung gelöscht, verlieren alle eigenen Prüfberichtseinträge ihre Angaben dazu."
+syntax_hint = "TOML-Format: ein Block [[requirement]] je Anforderung, darin label (z.B. \"A5\", identifiziert die Anforderung dauerhaft), de und en. Die Reihenfolge ist beliebig — maßgeblich ist das Label."
+syntax_error = "Der Text ist kein gültiges TOML — es wurde nichts gespeichert."
+save = "Speichern"
+save_confirm = "Speichern? Bewertungen zu gelöschten Anforderungen gehen dabei verloren."
+saved = "Gespeichert."
+purged = "In {n} Notiz(en) wurden Angaben zu gelöschten Anforderungen entfernt."
+reset = "Auf Standard zurücksetzen"
+reset_confirm = "Wirklich zurücksetzen? Alle eigenen Änderungen am Anforderungskatalog gehen verloren."
+
+[protocol.catalog.warn]
+duplicate_label = "Label '{label}' kommt mehrfach vor (Eintrag {index}) — nur der erste Eintrag mit diesem Label wird verwendet."
+missing_lang = "Anforderung {label}: kein {lang}-Text — es wird die andere Sprache angezeigt."
+missing_text = "Eintrag {index} ({label}) hat gar keinen Text und wird ignoriert."
+empty = "Der Katalog enthält keine Anforderungen."
+syntax = "Die gespeicherte Datei ist kein gültiges TOML: {message}"
+
+[report]
+title = "Prüfbericht"
+project = "Projekt"
+dataset = "Datensatz"
+generated = "Erstellt am"
+print = "Drucken / als PDF speichern"
+download_pdf = "Als PDF herunterladen"
+pdf_unavailable = "PDF-Export nicht verfügbar (xhtml2pdf ist auf diesem Server nicht installiert)."
+pdf_failed = "PDF konnte nicht erzeugt werden."
+overview_heading = "Übersicht: Anforderungen"
+col_na = "keine Angabe"
+entries_heading = "Prüfberichtseinträge"
+no_entries = "Keine Prüfberichtseinträge für diesen Datensatz."
+no_catalog = "Kein Anforderungskatalog geladen."
+refpoints = "Bezugspunkte"
+assessed_none = "Keine Anforderung bewertet."
+
+[badge]
+follows_title = "Bildmenge wird von Panel P{pid} übernommen – Darstellung mit eigener Konfiguration dieses Panels"
+source_title_prefix = "Diese Bildmenge nutzen auch:"
+collection_title = "Basisbildmenge aus Sammlung „{title}“ (fester Schnappschuss)"
+
+[collection]
+cell_title = "Zu einer Sammlung hinzufügen"
+cell_empty_title = "Keine Bilder in dieser Zelle"
+create_heading = "Eine Sammlung aus den markierten Matrixzellen erstellen"
+title_placeholder = "Titel der Sammlung (optional)"
+create = "Sammlung erstellen"
+open_new_panel = "In neuem Panel anzeigen"
+manage_title = "Sammlungen verwalten"
+manage_heading = "Sammlungen verwalten"
+empty = "Noch keine Sammlungen für diesen Datensatz."
+gone = "Diese Sammlung existiert nicht mehr."
+title_required = "Ein Titel darf nicht leer sein."
+rename = "Umbenennen"
+rename_title = "Titel speichern (ändert die Bildmenge nicht)"
+renamed = "Sammlung heißt jetzt „{title}“."
+clone = "Kopie"
+clone_title = "Kopie dieser Sammlung anlegen"
+cloned = "Kopie „{title}“ angelegt."
+copy_suffix = "Kopie"
+open_panel = "Öffnen"
+open_panel_title = "Sammlung in einem neuen Panel anzeigen"
+opened = "„{title}“ in einem neuen Panel geöffnet."
+delete_title = "Sammlung löschen"
+delete_confirm = "Sammlung „{title}“ wirklich löschen?"
+delete_blocked_title = "Löschen nicht möglich: die Sammlung ist von Notizen referenziert"
+deleted = "Sammlung „{title}“ gelöscht."
+delete_blocked = "„{title}“ kann nicht gelöscht werden: referenziert von {notes}. Erst dort den Bezugspunkt entfernen."
+merge_label = "Bilder hinzufügen zu:"
+merge = "Hinzufügen"
+merge_hint = "Diese Sammlung bleibt unverändert; nur die Zielsammlung wächst. Ist das Ziel referenziert (🔒), landet das Ergebnis in einer Kopie."
+merged = "{added} Bild(er) aus „{source}“ zu „{target}“ hinzugefügt."
+merge_invalid = "Ungültige Zielsammlung."
+images_summary = "Bilder anzeigen / entfernen"
+no_images = "Diese Sammlung ist leer."
+image_missing = "Bild nicht mehr im Datensatz"
+image_not_in_collection = "Keines der ausgewählten Bilder ist (noch) in der Sammlung."
+no_selection = "Keine Bilder ausgewählt."
+remove_tick_title = "Zum Entfernen ankreuzen"
+remove_selected_title = "Angekreuzte Bilder aus der Sammlung entfernen"
+remove_selected_copy_title = "Angekreuzte Bilder entfernen — die Sammlung ist referenziert, das Ergebnis wird als Kopie gespeichert"
+remove_selected_confirm = "Die angekreuzten Bilder wirklich entfernen?"
+as_copy_hint = "Das Ergebnis wird als Kopie gespeichert."
+frozen_marker = "Referenziert von Notizen: gegen verändernde Operationen geschützt"
+frozen_by = "Referenziert von:"
+frozen_hint = "verändernde Operationen erzeugen eine Kopie; Umbenennen ist ausgenommen, Löschen wird verweigert"
+frozen_cloned = "„{original}“ ist von {notes} referenziert und bleibt unverändert — die Änderung wurde in der neuen Sammlung „{copy}“ gespeichert."
+snapshot_refs = "In Workspace-Momentaufnahmen enthalten:"
+snapshot_refs_hint = "das schützt die Sammlung nicht"
+open_note_title = "Notiz öffnen"
+origin_confmatrix = "Konfusionsmatrix · {model} / {level} · {cells} Zelle(n)"
+origin_clone = "Kopie von „{title}“"
+
+[collection.remove_selected]
+one = "{n} Bild entfernen"
+other = "{n} Bilder entfernen"
+
+[collection.images_removed]
+one = "{n} Bild aus „{title}“ entfernt."
+other = "{n} Bilder aus „{title}“ entfernt."
+
+[filter.classification]
+label = "Klassifikation"
+
+[filter.classification.opt]
+alle = "Alle"
+korrekt = "Korrekt klassifiziert"
+inkorrekt = "Inkorrekt klassifiziert"
+
+[filter.confidence]
+label = "Konfidenz"
+enable = "Konfidenz einschränken"
+min_label = "min. Konfidenz"
+max_label = "max. Konfidenz"
+hint = "Konfidenz der vorhergesagten Klasse. Bei zwei Klassen liegt sie nie unter 50 %."
+
+[filter.cat.umgebung]
+label = "Umgebung"
+
+[filter.cat.umgebung.opt]
+ueberland = "Überland"
+semi_urban = "Semi-Urban"
+stadt = "Stadt"
+bahnhof = "Bahnhof"
+tunnel = "Tunnel"
+bahnuebergang = "Bahnübergang"
+
+[filter.cat.objekte]
+label = "Objekte"
+
+[filter.cat.objekte.opt]
+mensch = "Mensch"
+gebaeude = "Gebäude"
+signal = "Signal"
+andere_zuege = "Andere Züge"
+ueberwiegend_vegetation = "Überwiegend Vegetation"
+gewaesser = "Gewässer"
+schutzwand = "Schutzwand"
+bruecke = "Brücke"
+
+[filter.cat.tageszeit]
+label = "Tageszeit"
+
+[filter.cat.tageszeit.opt]
+tag = "Tag"
+daemmerung = "Dämmerung"
+nacht = "Nacht"
+indoor = "Indoor"
+
+[filter.cat.wetter]
+label = "Wetter"
+
+[filter.cat.wetter.opt]
+sonnig = "Sonnig"
+bewoelkt = "Bewölkt"
+regen = "Regen"
+schnee = "Schnee"
+nebel = "Nebel"
+gegenlicht = "Gegenlicht"
+
+[filter.dist.dist_lateral_m]
+label = "Laterale Distanz (Abstand vom Gleis)"
+unit = "m"
+
+[filter.dist.dist_longitudinal_m]
+label = "Longitudinale Distanz (in Blickrichtung)"
+unit = "m"
+
+[viewport]
+title = "Bildschirm zu schmal"
+body = "XAIminer stellt Panels nebeneinander und benötigt dafür einen breiteren Bildschirm. Bitte öffnen Sie die Anwendung auf einem Desktop-Rechner oder Tablet im Querformat — oder vergrößern Sie das Browserfenster."
+
+[footer]
+product = "XAIminer (Demonstrator)"
+imprint = "Impressum"
+privacy = "Datenschutz"
+contact = "Kontakt"
+deployment = "Deployment"
+local_dev = "local dev system"
+
+# Legal pages (/imprint, /privacy): only what the APPLICATION does lives here. The operator's
+# details (imprint, controller, legal basis, contact link) come from the legal file of the
+# instance — see legal.py and legal.example.toml.
+[legal]
+draft_notice = "Entwurf: Die in eckigen Klammern stehenden Angaben werden noch ergänzt."
+not_configured = "Für diese Instanz hat der Betreiber noch keine Angaben hinterlegt."
+
+[imprint]
+title = "Impressum"
+liability = "Haftung"
+liability_text = "Die Inhalte dieses Demonstrators dienen ausschließlich Forschungs- und Demonstrationszwecken. Für die Richtigkeit der angezeigten Modellausgaben und Erklärungen wird keine Gewähr übernommen; sie sind keine Grundlage für Entscheidungen im Wirkbetrieb."
+
+[privacy]
+title = "Datenschutzerklärung"
+controller = "Verantwortlicher"
+data = "Welche Daten verarbeitet werden"
+data_items = [
+  "Zugriffsdaten: Beim Aufruf der Seiten verarbeitet der Webserver technisch notwendige Protokolldaten (IP-Adresse, Zeitpunkt, aufgerufene Adresse, Browserkennung), um den Betrieb sicherzustellen.",
+  "Sitzung: Ein technisch notwendiges Cookie hält Ihre Sitzung. Es enthält den von Ihnen gewählten Anzeigenamen, die Sprachwahl und eine zufällige Kennung. Es wird nicht zur Analyse verwendet und endet mit dem Schließen des Browsers.",
+  "Von Ihnen eingegebene Inhalte: Notizen, Berichtseinträge, Anforderungen und der Anzeigename werden auf dem Server gespeichert, damit Sie sie in Ihrer Sitzung wiederfinden.",
+]
+data_note = "Eine Registrierung ist nicht erforderlich. Der Anzeigename ist frei wählbar; er muss kein Klarname sein."
+retention = "Speicherdauer"
+retention_text = "Als Gast erzeugte Inhalte werden nach {h} Stunden automatisch gelöscht. Inhalte in Konten bleiben bis zum Ende des Vorhabens oder bis zur Löschung auf Ihren Wunsch bestehen."
+external = "Keine Einbindung Dritter"
+external_text = "Alle Bestandteile der Seiten — auch Gestaltungs- und Skriptbibliotheken sowie Schriftarten — werden von diesem Server ausgeliefert. Es werden keine Inhalte von Dritten nachgeladen, es werden keine Analyse- oder Tracking-Werkzeuge eingesetzt, und Ihre Eingaben werden nicht an Dritte weitergegeben."
+# Variante für Instanzen, auf denen die Aufzeichnung von Bedienschritten konfiguriert ist
+# (tracking.py). Der Satz zu Dritten bleibt wahr; die Aufzeichnung steht im Abschnitt darunter.
+external_text_tracking = "Alle Bestandteile der Seiten — auch Gestaltungs- und Skriptbibliotheken sowie Schriftarten — werden von diesem Server ausgeliefert. Es werden keine Inhalte von Dritten nachgeladen, es werden keine Analyse- oder Tracking-Werkzeuge Dritter eingesetzt, und Ihre Eingaben werden nicht an Dritte weitergegeben."
+tracking = "Aufzeichnung von Bedienschritten"
+tracking_text = "Auf dieser Instanz kann für begleitete Usability-Sitzungen eine Aufzeichnung der Bedienschritte eingeschaltet werden. Sie ist standardmäßig aus und wird von der Versuchsleitung von Hand aktiviert; dass sie läuft, erkennen Sie am Zusatz „(R)\" neben dem Produktnamen. Aufgezeichnet werden dann die angeklickten Bedienelemente, geänderte Einstellungen und die von Ihnen eingegebenen Texte — keine Passwörter — zusammen mit Zeitpunkt und Anzeigename. Die Aufzeichnung dient allein der Verbesserung der Bedienbarkeit und wird nicht an Dritte weitergegeben."
+legal_basis = "Rechtsgrundlage"
+rights = "Ihre Rechte"

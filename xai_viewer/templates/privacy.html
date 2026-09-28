@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('privacy.title') }}{% endblock %}
+
+{# Privacy policy. Deliberately short: it describes what this application actually does — a
+   session cookie, the content a visitor types, the guest sweep — instead of reciting boilerplate
+   for processing that does not happen here. That part is generic and lives in the catalogues;
+   the guest retention repeats GUEST_TTL_HOURS so the page cannot drift away from the code.
+   Who is responsible, the legal basis and the supervisory authority belong to the operator and
+   come from the legal file of this instance (``privacy``, see legal.py). #}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+    <h1 class="h3 mb-3">{{ t('privacy.title') }}</h1>
+
+    {% if not privacy %}
+      <div class="alert alert-secondary py-2 small" role="alert">
+        <i class="bi bi-info-circle"></i> {{ t('legal.not_configured') }}
+      </div>
+    {% elif draft %}
+      <div class="alert alert-warning py-2 small" role="alert">
+        <i class="bi bi-exclamation-triangle"></i> {{ t('legal.draft_notice') }}
+      </div>
+    {% endif %}
+
+    {% if privacy.lead or privacy.reference_url %}
+      <p class="text-muted">
+        {{ privacy.lead }}
+        {% if privacy.reference_url %}
+          <a href="{{ privacy.reference_url }}" target="_blank" rel="noopener">{{ privacy.reference_label or privacy.reference_url }}</a>
+        {% endif %}
+      </p>
+    {% endif %}
+
+    {% if privacy.controller_text or privacy.dpo_url %}
+      <h2 class="h6 mt-4">{{ t('privacy.controller') }}</h2>
+      <p class="small">
+        {{ privacy.controller_text }}
+        {% if privacy.dpo_url %}
+          <a href="{{ privacy.dpo_url }}" target="_blank" rel="noopener">{{ privacy.dpo_label or privacy.dpo_url }}</a>
+        {% endif %}
+      </p>
+    {% endif %}
+
+    <h2 class="h6 mt-4">{{ t('privacy.data') }}</h2>
+    <ul class="small">
+      {% for item in t('privacy.data_items') %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+    <p class="small text-muted">{{ t('privacy.data_note') }}</p>
+
+    <h2 class="h6 mt-4">{{ t('privacy.retention') }}</h2>
+    <p class="small">{{ t('privacy.retention_text', h=guest_ttl_hours) }}</p>
+
+    <h2 class="h6 mt-4">{{ t('privacy.external') }}</h2>
+    {# An instance with usage tracking configured must not claim that nothing is recorded. The
+       claim about THIRD PARTIES stays true in both cases; the recording is described below. #}
+    <p class="small">{{ t('privacy.external_text_tracking') if tracking_available else t('privacy.external_text') }}</p>
+
+    {% if tracking_available %}
+      <h2 class="h6 mt-4">{{ t('privacy.tracking') }}</h2>
+      <p class="small">{{ t('privacy.tracking_text') }}</p>
+    {% endif %}
+
+    {% if privacy.legal_basis_text %}
+      <h2 class="h6 mt-4">{{ t('privacy.legal_basis') }}</h2>
+      <p class="small">{{ privacy.legal_basis_text }}</p>
+    {% endif %}
+
+    {% if privacy.rights_text %}
+      <h2 class="h6 mt-4">{{ t('privacy.rights') }}</h2>
+      <p class="small">{{ privacy.rights_text }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

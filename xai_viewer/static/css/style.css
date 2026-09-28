@@ -1,0 +1,431 @@
+/* Reserve the page scrollbar gutter always, so content that grows past the viewport
+   (e.g. revealing the requirements table) does not toggle the scrollbar and shift the
+   whole layout sideways. */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* ── Footer below the fold ───────────────────────────────────────────────────
+   The footer must never be visible while the page sits at scroll position 0 —
+   it should be findable, not distracting. Everything
+   above it therefore lives in a container of at least one viewport height, so
+   the footer starts exactly where the viewport ends. This is the OPPOSITE of
+   the usual "sticky footer" (margin-top: auto), which pins it INTO view on
+   short pages. Consequence: every page is scrollable — hence the stable
+   scrollbar gutter above, so nothing jumps sideways. */
+.page-fold {
+  min-height: 100vh;
+}
+
+/* ── Notes dock ─────────────────────────────────────────────────
+   The notes area docks as a left column and shares the row with the workspace
+   (it pushes the panels right instead of overlaying them). Sticky so it stays in
+   view while the workspace scrolls; scrolls internally when its own content is
+   tall. Hidden via .d-none (then the workspace takes the full width). */
+.notes-dock {
+  flex: 0 0 28rem;
+  max-width: 90vw;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+  /* Not plain 100vh: unscrolled the dock starts BELOW the navbar, so a full viewport height
+     would put its lower edge — and with it the form's Save/Cancel row — off screen. The navbar
+     height comes from a variable that base.html keeps up to date (it changes on resize, on a
+     language switch, on a long project name). Without the variable this degrades to the old
+     behaviour rather than breaking. */
+  max-height: calc(100vh - var(--notes-dock-top, 0px));
+  /* Column layout so the scrolling happens INSIDE (#notes-content), not on the dock itself:
+     that is what lets the note form keep its Save/Cancel row pinned while everything above it
+     scrolls. Deliberately no fixed heights anywhere — the dock is as tall as its content up to
+     the viewport, so resizing the window needs no recalculation. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* position: sticky makes the dock a stacking context that would otherwise trap the
+     (i) legend (position: fixed) *below* the later-in-DOM workspace. Lift the whole
+     dock above the panels so the legend paints on top. Stays below body-level modals
+     (Bootstrap modal = 1055) such as the "open image in which panel?" chooser. */
+  z-index: 1030;
+  border-right: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+}
+
+/* The dock's scrolling area. min-height: 0 is what allows it to shrink below its content
+   height inside the flex column (without it a flex item never scrolls). */
+#notes-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* Reserve the scrollbar gutter, so toggling the requirements table on/off does not
+     jitter the form. */
+  scrollbar-gutter: stable;
+}
+
+/* Note form: the action row stays put, everything above it scrolls. Same flex principle one
+   level down — the form fills the content area, its body takes the remaining space. */
+.note-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.note-form-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.note-form-actions {
+  flex: 0 0 auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+}
+
+#main-col {
+  flex: 1 1 0;
+  min-width: 0; /* let flex children (panel-row) shrink instead of overflowing */
+}
+
+/* ── Panel-Layout ──────────────────────────────────────────────────────────── */
+
+.panel-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+/* Default: fit panels to screen width */
+.panel-row .panel-card {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Alternative: fixed panel width + horizontal scrolling.
+   `scroll` instead of `auto`, plus explicit scrollbar styling: the platform's overlay
+   scrollbars fade out after a moment, which hides both the handle one wants to grab and the
+   fact that the row scrolls at all. Styling ::-webkit-scrollbar makes Chromium render a
+   classic, always-visible bar instead of the overlay one; `scrollbar-color` does the same
+   where Firefox honours it. Only this container is affected — the page scrollbar stays native. */
+.panel-row-scroll {
+  overflow-x: scroll;
+  padding-bottom: 0.5rem;
+  scrollbar-color: var(--bs-secondary-color) var(--bs-secondary-bg);
+}
+
+.panel-row-scroll::-webkit-scrollbar {
+  height: 0.75rem;
+}
+
+.panel-row-scroll::-webkit-scrollbar-track {
+  background: var(--bs-secondary-bg);
+  border-radius: 0.375rem;
+}
+
+.panel-row-scroll::-webkit-scrollbar-thumb {
+  background: var(--bs-secondary-color);
+  border-radius: 0.375rem;
+  /* Transparent border + background-clip keeps the handle slimmer than the track without
+     shrinking the grab target. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.panel-row-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--bs-emphasis-color);
+  background-clip: padding-box;
+}
+
+.panel-row-scroll .panel-card {
+  flex: 0 0 30rem;
+}
+
+/* ── Modell-Metadaten auf der Modelcard ──────────────────────────── */
+
+/* Einspaltige Definitionsliste: Label-Spalte (so breit wie das längste Label) + Wertspalte, die
+   den Rest einnimmt. Lange Werte (Algorithmus, Datensätze) brechen LINKSBÜNDIG innerhalb ihrer
+   Spalte um, statt in eine Nachbarspalte zu laufen. Der Wrapper-<div> je Feld ist display:contents,
+   damit Label und Wert direkt am Grid teilnehmen und die zwei Spalten über alle Zeilen bündig sind. */
+.modelcard-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 1rem;
+  row-gap: 0.2rem;
+  align-items: baseline;
+}
+
+.modelcard-meta > div {
+  display: contents;
+}
+
+/* min-width:0 + overflow-wrap lassen auch lange unteilbare Tokens (z. B. "cropped_dataset/train")
+   innerhalb der Wertspalte umbrechen, statt das Grid zu sprengen. */
+.modelcard-meta .mc-meta-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Breathing room between the metadata block and the confusion matrix. */
+.mc-matrix {
+  margin-top: 2em;
+}
+
+/* "Vorhersage" gets its own grey-framed cell above (and aligned with) the data columns –
+   the empty top-left corner stays borderless. */
+table.mc-matrix th.mc-pred-head {
+  border: 1px solid var(--bs-border-color);
+}
+
+/* The confusion matrix reads as a framed 2x2 grid: only the data cells carry a border, so it
+   clearly separates from the surrounding labels; the label/header cells stay borderless (no
+   stray line around the empty top-left corner). Higher specificity than Bootstrap's table rules
+   (and style.css is loaded after Bootstrap). */
+table.mc-matrix th,
+table.mc-matrix td:not(.mc-data-cell) {
+  border: 0;
+}
+
+table.mc-matrix td.mc-data-cell {
+  border: 2px solid #000;
+}
+
+/* ── Galerie innerhalb eines Panels ───────────────────────────────────────── */
+
+.panel-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.panel-thumb img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 2px solid transparent;
+  border-radius: 0.25rem;
+}
+
+.panel-thumb img.border-success {
+  border-color: var(--bs-success);
+}
+
+.panel-thumb img.border-danger {
+  border-color: var(--bs-danger);
+}
+
+/* Single-image view: image fills the panel */
+.panel-single-fig {
+  display: flex;
+  justify-content: center;
+}
+
+.panel-single-fig img {
+  width: 100%;
+  max-height: calc(100vh - 22rem);
+  object-fit: contain;
+  border: 2px solid transparent;
+  border-radius: 0.25rem;
+}
+
+.panel-single-fig img.border-success {
+  border-color: var(--bs-success);
+}
+
+.panel-single-fig img.border-danger {
+  border-color: var(--bs-danger);
+}
+
+/* Prefetch of the next single-view image: must stay in the layout (display:none would still
+   load, but 1px keeps every engine honest) yet invisible and untouchable. */
+.panel-preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* CRAFT concept picker: colour swatch shown before each concept (toggle + menu items), so a
+   coloured region in the attribution map can be matched to its concept by colour. */
+.craft-swatch {
+  display: inline-block;
+  width: .85em;
+  height: .85em;
+  border: 1px solid rgba(0, 0, 0, .25);
+  border-radius: 2px;
+  vertical-align: -1px;
+  flex-shrink: 0;
+}
+
+/* Login page: the two entrances (guest without a password, registered account) must read as
+   two separate offers, not as one form with an optional field — a single form confused first
+   testers (2026-09-01). The divider carries a label so the "or" is stated, not just drawn. */
+.login-sep {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin: 1.25rem 0 1.15rem;
+  color: var(--bs-secondary-color);
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.login-sep::before,
+.login-sep::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--bs-border-color), transparent);
+}
+
+/* The account login is folded away behind its own heading (native <details>): the summary is
+   the whole clickable row, with a chevron that turns when it opens. `list-style: none` plus the
+   WebKit pseudo-element removes the browser's own triangle in every engine. */
+.login-account-summary {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.login-account-summary::-webkit-details-marker {
+  display: none;
+}
+
+.login-account-summary::after {
+  content: "";
+  margin-left: auto;
+  width: .5rem;
+  height: .5rem;
+  border-right: 2px solid var(--bs-secondary-color);
+  border-bottom: 2px solid var(--bs-secondary-color);
+  /* The box is rotated, so a translate would move along the rotated axes — the vertical
+     centring is done with a margin, which stays in page coordinates. */
+  margin-top: -.25rem;
+  transform: rotate(45deg);
+  transition: transform .15s ease-in-out, margin-top .15s ease-in-out;
+}
+
+.login-account[open] > .login-account-summary::after {
+  margin-top: .25rem;
+  transform: rotate(-135deg);
+}
+
+.login-account-summary:hover {
+  color: var(--bs-primary);
+}
+
+.login-account-summary:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+  border-radius: .25rem;
+}
+
+.login-fineprint {
+  font-size: .75rem;
+  line-height: 1.35;
+}
+
+/* ── Mindestbreite (Viewport-Guard) ──────────────────────────────────────────
+   XAIminer vergleicht Panels NEBENEINANDER — das braucht Breite. Unter der Schwelle wird die
+   Anwendung daher bewusst blockiert statt kaputt dargestellt (Stand: kein Mobile-Layout).
+   Bewusst reines CSS, kein JS-Island: Ein- und Ausblenden folgt der Fenstergröße automatisch,
+   es gibt keinen Zustand, der aus dem Tritt geraten kann. z-index über allem (Bootstrap-Modal
+   = 1055, Notiz-Dock = 1030), damit auch ein offener Dialog verdeckt wird. */
+.viewport-guard {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .viewport-guard {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    /* Deckend, damit die unbrauchbare Darstellung dahinter nicht durchscheint. */
+    background: var(--bs-body-bg);
+    text-align: center;
+  }
+
+  .viewport-guard-box {
+    max-width: 22rem;
+  }
+
+  .viewport-guard-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: .75rem;
+    color: var(--bs-secondary-color);
+  }
+}
+
+/* Guide pages (/docs/<page>, docs_render.py): Markdown output styled in place. The overview
+   figure fits the viewport without scrolling — the height left after navbar and padding decides. */
+.docs-content img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+}
+.docs-content img[src*="/docs/overview-"] {
+  display: block;
+  max-height: calc(100vh - 10rem);
+  width: auto;
+  margin: 0 auto;
+}
+.docs-content :is(h1, h2, h3) { scroll-margin-top: 4.5rem; }
+.docs-content h1 { margin-top: 2rem; }
+.docs-content h2 { margin-top: 1.75rem; }
+.docs-content pre {
+  background: var(--bs-tertiary-bg);
+  padding: .75rem 1rem;
+  border-radius: var(--bs-border-radius);
+}
+.docs-content blockquote {
+  border-left: .25rem solid var(--bs-border-color);
+  padding-left: 1rem;
+  color: var(--bs-secondary-color);
+}
+
+/* ── Language-stable labels ──────────────────────────────────────────────────
+   A label rendered via partials/_stable_label.html keeps the width of its longest
+   translation, so a language switch never shifts neighbouring controls (the navbar's
+   buttons used to jump because "Notes" is narrower than "Notizen"). All variants share
+   one grid cell; the inactive ones stay in the flow but invisible.
+   The tag next to the product name no longer illustrates this — since it says "Demonstrator"
+   in both languages it costs nothing here, but the mechanism is still carried by the buttons
+   beside it, so do not take the tag's sameness as a reason to remove any of this. */
+.stable-label {
+  display: inline-grid;
+  justify-items: start;
+}
+
+.stable-label > span {
+  grid-area: 1 / 1;
+}
+
+.stable-label-ghost {
+  visibility: hidden;
+}
+
+/* Button captions: the shorter variant sits centred in the reserved width, like any button text. */
+.stable-label-center {
+  justify-items: center;
+}
+
+/* Label column of the single view's confidence rows and of the captions below them: one width
+   for both, so the true label and the file name start exactly where the bars do. */
+.panel-row-label {
+  min-width: 7rem;
+}

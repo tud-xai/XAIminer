@@ -1,0 +1,29 @@
+# Bilder, die in jeder Bildliste ganz vorn stehen sollen — gedacht für Vorführungen (Messe),
+# damit man ein bestimmtes Bild nicht erst zusammenscrollen muss. Pro Datensatz ein Abschnitt;
+# die Reihenfolge hier ist die Reihenfolge in der App. Alle übrigen Bilder folgen unverändert
+# in der bisherigen (alphabetischen) Ordnung dahinter.
+#
+# Angegeben wird der Dateiname; die Endung darf weggelassen werden
+# ("img_00421.jpg" == "img_00421"). Unbekannte Namen werden übersprungen und als Warnung
+# geloggt — ein Tippfehler kurz vor der Vorführung fällt so auf, hält die App aber nicht an.
+#
+# Ein vorgezogenes Bild ersetzt keinen Filter: passt es nicht zum Filter des Panels, taucht es
+# auch nicht auf. Es steht nur dann vorn, wenn es ohnehin im Ergebnis ist.
+#
+# Änderungen wirken nach einem **Neustart** der App (die Metadaten werden einmal geladen und
+# zwischengespeichert).
+#
+# Diese Datei ist bewusst KEINE `config.toml`: `deployment/deploy.py` schließt jede `config.toml`
+# vom Upload aus, eine Liste dort käme also nie auf den Server. Diese Datei ist eingecheckt und
+# wird mitdeployt.
+
+[RailPer]
+images = [
+    "RAWPED_set11_V003_I00194.jpg",
+    "RAWPED_set12_V000_I00001.jpg",
+    "RAWPED_set12_V001_I00033.jpg",
+    "RAWPED_set12_V005_I00001.jpg",
+    "RAWPED_set13_V000_I00076.jpg",
+    "RAWPED_set13_V001_I00210.jpg",
+    "osdar23_11_main_station_11.1_rgb_center_285_1631531580.600000016.jpg",
+]

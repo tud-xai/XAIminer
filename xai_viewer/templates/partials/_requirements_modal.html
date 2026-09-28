@@ -1,0 +1,78 @@
+{# Requirements catalog editor: raw TOML of the catalog in effect for this user + dataset. Opened by the pencil in the requirements section; rendered into #modal-container. Saving posts the note form along (hx-include) so the verdicts on screen survive the reload of the table behind this dialog. Stays open after saving and reports what happened. #}
+<div class="modal d-block show" tabindex="-1" style="background: rgba(0,0,0,0.6); z-index: 1090;"
+     id="req-edit-modal">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header py-2">
+        <h5 class="modal-title">
+          <i class="bi bi-pencil-square"></i> {{ t('protocol.catalog.heading') }}
+          {% if is_custom %}
+            <span class="badge text-bg-secondary ms-1">{{ t('protocol.catalog.state_custom') }}</span>
+          {% else %}
+            <span class="badge text-bg-light ms-1">{{ t('protocol.catalog.state_master') }}</span>
+          {% endif %}
+        </h5>
+        <button type="button" class="btn-close" aria-label="{{ t('common.close') }}"
+                onclick="document.getElementById('modal-container').innerHTML = ''"></button>
+      </div>
+
+      <form hx-post="{{ url_for('requirements_save') }}"
+            hx-target="#modal-container" hx-swap="innerHTML"
+            hx-include="#notes-content form"
+            hx-confirm="{{ t('protocol.catalog.save_confirm') }}">
+        <div class="modal-body">
+
+          {% if saved %}
+            <div class="alert alert-success py-2 small mb-2">
+              <i class="bi bi-check-lg"></i> {{ t('protocol.catalog.saved') }}
+              {% if purged %} {{ t('protocol.catalog.purged', n=purged) }}{% endif %}
+            </div>
+          {% endif %}
+
+          {% if error %}
+            <div class="alert alert-danger py-2 small mb-2">
+              <i class="bi bi-x-octagon"></i> {{ t('protocol.catalog.syntax_error') }}
+              <div class="font-monospace mt-1">{{ error }}</div>
+            </div>
+          {% endif %}
+
+          {% if warnings %}
+            <div class="alert alert-warning py-2 small mb-2">
+              <ul class="mb-0 ps-3">
+                {% for message in warnings %}<li>{{ message }}</li>{% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <div class="alert alert-warning py-2 small mb-2">
+            <i class="bi bi-exclamation-triangle"></i> {{ t('protocol.catalog.warning') }}
+          </div>
+          <p class="small text-muted mb-2">{{ t('protocol.catalog.syntax_hint') }}</p>
+
+          <textarea class="form-control font-monospace" name="source" rows="18"
+                    spellcheck="false" style="font-size: .8rem">{{ source }}</textarea>
+        </div>
+
+        <div class="modal-footer py-2">
+          {% if is_custom %}
+            {# Reset must not be a submit of this form: it discards the file, not the textarea. #}
+            <button type="button" class="btn btn-outline-danger me-auto"
+                    hx-post="{{ url_for('requirements_reset') }}"
+                    hx-target="#modal-container" hx-swap="innerHTML"
+                    hx-include="#notes-content form"
+                    hx-confirm="{{ t('protocol.catalog.reset_confirm') }}">
+              <i class="bi bi-arrow-counterclockwise"></i> {{ t('protocol.catalog.reset') }}
+            </button>
+          {% endif %}
+          <button type="button" class="btn btn-secondary"
+                  onclick="document.getElementById('modal-container').innerHTML = ''">
+            {{ t('common.close') }}
+          </button>
+          <button type="submit" class="btn btn-primary">{{ t('protocol.catalog.save') }}</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>

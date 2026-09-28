@@ -1,0 +1,8 @@
+flask>=2.3
+pillow>=10.0            # thumbnails (thumbnails.py) + mock dataset generator
+xhtml2pdf>=0.2          # server-side audit-report PDF, pure-python (no system libs)
+markdown>=3.4           # guides in docs/ rendered as help pages (docs_render.py), pure-python
+# Deployment only (installed by deployment/deploy.py, not needed for development):
+# gunicorn
+# Removed 2026-08-13: flask-sqlalchemy, matplotlib, numpy — not imported anywhere (the app has
+# no database, and the confusion matrix is rendered as an HTML table, not as a plot).

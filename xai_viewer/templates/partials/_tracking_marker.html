@@ -1,0 +1,12 @@
+{# Navbar marker: this session is being recorded (see tracking.py). Rendered into #tracking-marker
+   on every page AND returned on its own by /tracking/toggle, so switching the mode needs no
+   reload — a reload mid-session would distort what is being measured.
+
+   The glyph is deliberately not an i18n key: "(R)" is the same in German and English, and a key
+   would invite two different widths that shift the navbar on a language switch (the reason
+   _stable_label.html exists at all). Only the tooltip is translated.
+
+   Dimmed like the demonstrator tag: it is a signal for us, not something that should pull a
+   participant's attention away from the task. #}
+{% if tracking_on %}<span class="text-secondary small" data-tracking="on"
+      title="{{ t('nav.tracking_title') }}">(R)</span>{% endif %}

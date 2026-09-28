@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('role.page_title') }}{% endblock %}
+
+{# The three roles of the usage concept. Which of them the application actually implements is
+   decided in app.py (ACTIVE_ROLES) and passed in as `active_roles`; the rest are shown as
+   disabled cards. One loop instead of three near-identical blocks, so switching which role is
+   live stays a one-line change. #}
+
+{% set roles = [("entwickler", "bi-code-slash"),
+                ("validierer", "bi-check2-circle"),
+                ("gutachter", "bi-patch-check")] %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-sm-10 col-md-8 col-lg-7">
+    <h4 class="mb-1">{{ t('role.heading') }}</h4>
+    <p class="text-muted small mb-4">{{ t('role.greeting', user=session.user) }}</p>
+
+    <form method="post">
+      <div class="row g-3">
+        {% for key, icon in roles %}
+          <div class="col-md-4">
+            {% if key in active_roles %}
+              <button type="submit" name="role" value="{{ key }}"
+                      class="btn btn-outline-primary w-100 h-100 p-4 text-start role-btn">
+                <i class="bi {{ icon }} fs-2 d-block mb-2"></i>
+                <strong>{{ t('role.' ~ key) }}</strong>
+                <p class="small text-muted mb-0 mt-1">{{ t('role.' ~ key ~ '_desc') }}</p>
+              </button>
+            {% else %}
+              <div class="btn btn-outline-secondary w-100 h-100 p-4 text-start disabled role-btn"
+                   title="{{ t('role.unavailable', role=t('role.' ~ key)) }}"
+                   aria-disabled="true">
+                <i class="bi {{ icon }} fs-2 d-block mb-2 text-muted"></i>
+                <strong class="text-muted">{{ t('role.' ~ key) }}</strong>
+                <p class="small text-muted mb-0 mt-1">{{ t('role.' ~ key ~ '_desc') }}</p>
+                <span class="badge text-bg-secondary mt-2">{{ t('common.soon') }}</span>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

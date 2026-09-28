@@ -1,0 +1,70 @@
+{# Note list for the dock (swapped into #notes-list). Each note: title, reference-point badges, edit (loads the form into #notes-content) / delete. Newest first. Audit-report entries carry a badge. #}
+{% for n in notes %}
+  <div class="card mb-2">
+    <div class="card-body p-2">
+      <div class="d-flex align-items-start gap-1">
+        {# Overview shows the title only; the description text is available as a tooltip and in the edit dialog. (n.text fallback: notes created before titles existed.) #}
+        <div class="small fw-semibold flex-grow-1" {% if n.text %}title="{{ n.text }}"{% endif %}>
+          {% if n.is_report_entry %}
+            <i class="bi bi-clipboard-check text-primary" title="{{ t('report_entry.badge') }}"></i>
+          {% endif %}
+          {{ n.title or n.text }}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1"
+                title="{{ t('notes.edit') }}"
+                hx-get="/notes/{{ n.id }}/edit" hx-target="#notes-content" hx-swap="innerHTML">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1"
+                title="{{ t('notes.delete') }}"
+                hx-post="/notes/{{ n.id }}/delete" hx-target="#notes-list" hx-swap="innerHTML"
+                hx-confirm="{{ t('notes.delete_confirm') }}">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+      {% if n.refpoint_views %}
+        {# refpoint_views is 1:1 with the note's refpoints → loop.index0 addresses the refpoint. #}
+        <div class="d-flex flex-wrap gap-1 mt-1">
+          {% for rv in n.refpoint_views %}
+            {% if rv.type == 'workspace' %}
+              <button type="button" class="badge text-bg-light border border-primary text-truncate"
+                      style="max-width: 100%"
+                      title="{{ rv.title }} – {{ t('notes.load_ws_title') }}"
+                      hx-post="/notes/{{ n.id }}/refpoint/{{ loop.index0 }}/load-workspace"
+                      hx-confirm="{{ t('notes.load_ws_confirm') }}"
+                      hx-target="#workspace" hx-swap="outerHTML">
+                <i class="bi {{ rv.icon }}"></i> {{ rv.label }}
+              </button>
+            {% elif rv.type == 'image' %}
+              <button type="button" class="badge text-bg-light border border-primary text-truncate"
+                      style="max-width: 100%"
+                      title="{{ rv.title }} – {{ t('notes.open_image_title') }}"
+                      hx-get="/notes/{{ n.id }}/refpoint/{{ loop.index0 }}/open-image"
+                      hx-target="#modal-container" hx-swap="innerHTML">
+                <i class="bi {{ rv.icon }}"></i> {{ rv.label }}
+              </button>
+            {% elif rv.type == 'collection' and not rv.gone %}
+              <button type="button" class="badge text-bg-light border border-primary text-truncate"
+                      style="max-width: 100%"
+                      title="{{ rv.title }} – {{ t('notes.open_collection_title') }}"
+                      hx-post="/notes/{{ n.id }}/refpoint/{{ loop.index0 }}/open-collection"
+                      hx-target="#workspace" hx-swap="outerHTML">
+                <i class="bi {{ rv.icon }}"></i> {{ rv.label }}
+              </button>
+            {% else %}
+              <span class="badge text-bg-light border text-truncate" style="max-width: 100%"
+                    title="{{ rv.title }}">
+                <i class="bi {{ rv.icon }}"></i> {{ rv.label }}
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+      <div class="text-muted mt-1" style="font-size: .75rem">
+        {{ n.user }} · {{ n.updated_at | replace("T", " ") }}
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="text-muted small">{{ t('notes.empty') }}</div>
+{% endfor %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('project.page_title') }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-sm-10 col-md-8 col-lg-6">
+    <h4 class="mb-1">{{ t('project.heading') }}</h4>
+    <p class="text-muted small mb-4">{{ t('project.subtitle') }}</p>
+
+    <div class="row g-3">
+
+      {# Vorhandenes Projekt laden (ausgegraut) #}
+      <div class="col-md-5">
+        <div class="card h-100 border-secondary opacity-50">
+          <div class="card-body p-4">
+            <h6 class="card-title text-muted">
+              <i class="bi bi-folder2-open me-1"></i> {{ t('project.load_existing') }}
+            </h6>
+            <p class="small text-muted">{{ t('project.load_existing_desc') }}</p>
+            <button class="btn btn-outline-secondary w-100" disabled>
+              <i class="bi bi-upload me-1"></i> {{ t('project.load_btn') }}
+            </button>
+            <p class="small text-muted mt-2 mb-0">
+              <i class="bi bi-clock"></i> {{ t('project.load_later') }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {# Neues Projekt anlegen #}
+      <div class="col-md-7">
+        <div class="card h-100 border-primary">
+          <div class="card-body p-4">
+            <h6 class="card-title">
+              <i class="bi bi-plus-circle me-1"></i> {{ t('project.new') }}
+            </h6>
+            <form method="post">
+              <div class="mb-3">
+                <label for="proj-name" class="form-label small fw-bold">{{ t('project.name_label') }}</label>
+                <input type="text" class="form-control" id="proj-name" name="name"
+                       value="{{ default_name }}" required>
+              </div>
+              <div class="mb-3">
+                <label for="proj-dataset" class="form-label small fw-bold">
+                  {{ t('project.dataset_label') }}
+                </label>
+                {% if datasets %}
+                  <select class="form-select" id="proj-dataset" name="dataset">
+                    {% for ds in datasets %}
+                      <option value="{{ ds }}" {{ 'selected' if ds == default_dataset }}>{{ ds }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="form-text small">{{ t('project.dataset_help') }}</div>
+                {% else %}
+                  <div class="alert alert-warning py-2 mb-0 small">{{ t('project.dataset_none') }}</div>
+                {% endif %}
+              </div>
+              {% if allow_project_type_selection %}
+              <div class="mb-4">
+                <label class="form-label small fw-bold">{{ t('project.type_label') }}</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="type"
+                         id="type-test" value="test" checked>
+                  <label class="form-check-label" for="type-test">
+                    {{ t('project.type_test') }}
+                    <span class="text-muted small">{{ t('project.type_test_desc') }}</span>
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="type"
+                         id="type-pruefung" value="pruefung">
+                  <label class="form-check-label" for="type-pruefung">
+                    {{ t('project.type_pruefung') }}
+                    <span class="text-muted small">{{ t('project.type_pruefung_desc') }}</span>
+                  </label>
+                </div>
+              </div>
+              {% else %}
+              {# Project type selection hidden (2026-09-09, flag ALLOW_PROJECT_TYPE_SELECTION in
+                 app.py): it confused the first testers. No hidden field needed — while the flag
+                 is off the server pins every new project to DEFAULT_PROJECT_TYPE. #}
+              {% endif %}
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-arrow-right-circle me-1"></i> {{ t('project.start') }}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+# Requirements catalog for the audit protocol — READ-ONLY MASTER.
+#
+# This file is never written by the app. Users edit their own copy per user+dataset
+# in the app (pencil next to the (i) in the protocol section of a note); until they
+# do, this master applies. See requirements_store.py.
+#
+# Each [[requirement]] is one auditing criterion and carries:
+#   label  stable identifier (A1, A2, ...) — protocol entries store their verdicts
+#          under it. The label, not the position, identifies a requirement: reordering
+#          is harmless, and deleting one is unambiguous. A missing label falls back to
+#          the position, but always set it explicitly. A label used twice: only the
+#          first entry counts (the editing dialog warns).
+#   de/en  the requirement text. Both should be filled; if one is missing, the other
+#          is used for both languages and the dialog warns.
+#
+# The path of this master can be overridden via [paths].requirements_file in config.toml.
+
+[[requirement]]
+label = "A1"
+de = "Auf Bildern mit klar erkennbaren Personen muss die Grad-CAM-Salienz überwiegend auf allen diesen Personen liegen."
+en = "On images with clearly recognisable persons, the Grad-CAM saliency must lie predominantly on all of those persons."
+
+[[requirement]]
+label = "A2"
+de = "Die Grad-CAM-Salienz darf nicht hauptsächlich auf Gegenständen (statt auf Personen) liegen."
+en = "The Grad-CAM saliency must not lie mainly on objects (instead of on persons)."
+
+[[requirement]]
+label = "A3"
+de = "Die gesamte Klassifikationsgenauigkeit muss größer als 95 % sein."
+en = "The overall classification accuracy must be greater than 95%."
+
+[[requirement]]
+label = "A4"
+de = "Die Erkennungsleistung darf sich zwischen den Umgebungsbedingungen (Tag/Nacht, Wetter) nicht wesentlich unterscheiden."
+en = "The detection performance must not differ substantially between environmental conditions (day/night, weather)."
+
+[[requirement]]
+label = "A5"
+de = "Für Personen in großer Entfernung dürfen falsch-negative Erkennungen einen definierten Schwellwert nicht überschreiten, damit auch entfernte Personen zuverlässig als solche klassifiziert werden und die Salienz-Erklärung nachvollziehbar auf der jeweiligen Person liegt."
+en = "For persons at large distance, false-negative detections must not exceed a defined threshold, so that even distant persons are reliably classified as such and the saliency explanation plausibly rests on the respective person."

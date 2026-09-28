@@ -1,0 +1,523 @@
+# English language catalog (i18n).
+# Nested tables are flattened to dot keys on load (e.g. filter.cat.umgebung.label).
+# Placeholders in curly braces (e.g. {n}, {pid}, {user}) are filled via str.format.
+# de and en MUST have the same key set (consistency self-test).
+
+[common]
+cancel = "Cancel"
+close = "Close"
+original = "Original images"
+soon = "Coming soon"
+true_label = "true"
+file_label = "File"
+prediction_label = "prediction"
+confidences_label = "Confidences"
+
+[nav]
+logout = "Log out"
+notes = "Notes"
+collections = "Collections"
+demonstrator_tag = "Demonstrator"
+# Tooltip of the "(R)" marker that shows this session is being recorded (tracking.py).
+tracking_title = "This session is being recorded for usability analysis (Ctrl+Alt+Shift+T stops the recording)."
+language = "Language"
+project_type_pruefung = "Audit"
+project_type_test = "Exploration"
+
+[help]
+button = "Help"
+title = "Help"
+close = "Close"
+not_implemented = "There is no help for this area yet — the help system is not implemented."
+contact = "Please get in touch with the developers if you have questions."
+
+# Guide pages (/docs/<page>, docs_render.py); /docs/overview is the target of the help button.
+[docs]
+german_only = "This guide is currently available in German only."
+
+[login]
+title = "Sign in"
+guest_heading = "Sign in as a guest"
+guest_lead = "No account needed — just pick a display name shown as the author of your notes."
+guest_name = "Display name"
+guest_name_ph = "e.g. first name or initials"
+guest_submit = "Sign in as a guest"
+guest_ttl = "Content created as a guest is deleted automatically after {h} hours."
+guest_local = "Content created as a guest stays tied to this name."
+guest_name_taken = "This name belongs to a registered account. Please choose a different name – or sign in with a password below."
+divider = "or"
+account_heading = "Sign in as a registered user"
+username = "Username"
+username_ph = "Enter username"
+password = "Password"
+password_ph = "Enter password"
+submit = "Sign in"
+failed = "Username or password is incorrect."
+rate_limited = "Too many sign-in attempts. Please wait a moment."
+request_prompt = "No account yet?"
+request_link = "Request access"
+
+[demo]
+note_limit = "Demo mode allows at most {n} notes per dataset. Please delete an existing one."
+catalog_limit = "In demo mode the requirements catalogue is limited to {n} characters."
+tool_blocked = "Switched off in demo mode. This tool works on shared real working data with no owner concept and is therefore blocked in the public demo."
+
+[role]
+page_title = "Field of activity"
+heading = "Select field of activity"
+greeting = "Hello {user}, please choose your role."
+gutachter = "Assessor"
+gutachter_desc = "Safety audit and assessment of AI-based systems."
+validierer = "Validator"
+validierer_desc = "Examine models and their explanations, assess requirements, keep the audit report."
+entwickler = "Developer"
+entwickler_desc = "Bring in and compare your own models."
+unavailable = "{role} mode is not yet available in this version."
+
+[project]
+page_title = "Project"
+heading = "Analysis project"
+subtitle = "Load an existing project or create a new one."
+load_existing = "Load existing project"
+load_existing_desc = "Resume saved audit sessions."
+load_btn = "Load project"
+load_later = "Will be available in a later version."
+new = "Create new project"
+name_label = "Project name"
+dataset_label = "Dataset"
+dataset_help = "Datasets available on the server (directories containing metadata.json)."
+dataset_none = "No dataset found – run tools/build_metadata.py first."
+type_label = "Project type"
+type_test = "Free exploration"
+type_test_desc = "– audit report is not the primary goal"
+type_pruefung = "Formal audit"
+type_pruefung_desc = "– audit report is intended"
+start = "Start"
+default_name_prefix = "Analysis"
+
+[setup_error]
+page_title = "Setup required"
+heading = "Dataset metadata missing"
+body = "The <code>metadata.json</code> file for dataset <strong>{dataset}</strong> was not found. It must be generated once and lives outside the repo (versioned raw data is not checked in)."
+missing_label = "Missing file:"
+solution_label = "Solution – run once from <code>xai_viewer/</code>:"
+command = "python tools/build_metadata.py {dataset}"
+reload_hint = "Then reload the page. More details in the"
+readme_link = "setup guide"
+retry = "Retry"
+choose_dataset = "Choose another dataset"
+
+[workspace]
+page_title = "Workspace"
+new_panel = "New panel"
+panel_limit = "Maximum number of panels reached ({max})."
+panel_show = "Show"
+panel_hide = "Hide"
+adopt_base = "Adopt base images"
+adopt_base_title = "All panels then take their model configuration and base images from the leftmost panel."
+link_all = "Link all"
+unlink_all = "Unlink all"
+link_all_title = "Link all panels (scroll + single-image navigation shared)"
+unlink_all_title = "Unlink all panels"
+layout_scroll = "Scroll"
+layout_fit = "Fit"
+layout_toggle_title = "Toggle: squeeze panels to screen width vs. scroll horizontally"
+no_visible_prefix = "No visible panels."
+no_visible_suffix = "to create one or show a panel."
+
+[sync]
+title = "Step through linked single-image panels in sync (also with ← / →)"
+label = "in sync"
+# Names of their own for the two arrow buttons: the tooltip above sits on the group, while the
+# buttons themselves hold only an icon and therefore had no name at all (screen readers; showed
+# up in the tracking as a bare "BUTTON", 2026-09-21).
+prev = "Previous image (all linked panels)"
+next = "Next image (all linked panels)"
+
+[single]
+back_to_gallery = "Back to gallery"
+prev = "Previous image"
+next = "Next image"
+prev_linked = "Previous image (panel linked: steps all linked panels)"
+next_linked = "Next image (panel linked: steps all linked panels)"
+original = "Original image"
+
+[gallery]
+click_fullscreen = "(click for full screen)"
+
+[gallery.image_count]
+one = "{n} image"
+other = "{n} images"
+
+[crp]
+concept_select = "Concept (by relevance)"
+view_select = "Image type"
+rank = "Rank"
+concept = "Concept"
+relevance = "Relevance"
+heatmap = "Heatmap"
+grid = "Examples"
+
+[craft]
+select = "View"
+map = "Attribution map"
+concept = "C"
+importance = "imp"
+share = "share"
+concept_tip = "Concept — a recurring image pattern the model learned (CRAFT)."
+importance_tip = "imp = the concept's global importance for the class, model-wide and image-independent (0–100 %)."
+activation_tip = "This concept's share of the total concept activation in this image. Raw value:"
+
+[panel]
+config_title = "Configure (filter, model, XAI)"
+config_pending = "Configuration pending."
+duplicate = "Duplicate panel"
+hide = "Hide panel"
+delete = "Delete panel"
+delete_confirm = "Really delete panel P{pid}?"
+filter_active = "Filter active: {summary}"
+no_match = "No image meets the filter criteria."
+no_xai = "no XAI"
+no_xai_title = "XAI image not available for this combination"
+
+[panel.link]
+unlink_title = "Remove link"
+link_title = "Link with other linked panels (gallery scroll + single-image stepping)"
+
+[config]
+title = "Configure panel P{pid}"
+model = "AI model"
+level = "Accuracy"
+display = "Display"
+source = "Base image source"
+source_own = "Own filter"
+source_panel = "Panel P{pid} ({descr})"
+source_collection = "Collection “{title}” ({count} images)"
+source_info = "“Own filter” = base image set from the filters below. Another panel = adopt its filtered base image set (including order) and render it with this panel's configuration; the own filters are then inactive."
+source_info_followers = "This panel is a base image source for other panels and therefore cannot adopt a foreign source."
+filter_heading = "Filters"
+filter_hint = "(empty = no restriction)"
+filter_inactive = "– inactive: base image set comes from another base image source"
+classification_note = "Correctness refers to this panel's model + accuracy."
+from = "from"
+to = "to"
+apply = "Apply"
+xai_reset_hint = "Method not available for this model – reset to Original."
+modelcard = "Model overview"
+modelcard_heading = "Evaluation scope"
+modelcard_hint = "(exactly one category; percentage = accuracy of that subset)"
+modelcard_all = "All images"
+
+[modelcard]
+accuracy = "Accuracy"
+accuracy_title = "Computed from the predictions of the current evaluation scope – not the nominal test accuracy from the model metadata."
+evaluated = "evaluated"
+predicted = "Prediction"
+actual = "True class"
+meta_heading = "Model metadata"
+
+[modelcard.meta]
+params = "Parameters"
+epochs = "Epochs"
+trained_at = "Trained on"
+algorithm = "Training algorithm"
+train_dataset = "Training dataset"
+test_dataset = "Test dataset"
+nominal_accuracy = "Validation accuracy"
+
+[notes]
+toggle_title = "Show/hide notes (n)"
+close_dock_title = "Close (Esc)"
+sidebar_title = "Notes"
+new = "New note"
+new_title = "New note"
+edit_title = "Edit note {nid}"
+empty = "No notes for this dataset yet."
+edit = "Edit note"
+delete = "Delete note"
+delete_confirm = "Really delete this note?"
+discard_confirm = "Discard unsaved changes?"
+save = "Save"
+title_label = "Title"
+title_ph = "Short, concise title (max. {max} characters)"
+text_label = "Description (optional)"
+text_ph = "Record a finding / observation …"
+refpoints_heading = "Reference points"
+add_refpoints = "Add reference points"
+existing_refpoints = "Existing reference points"
+keep_hint = "Uncheck to remove a reference point."
+ref_refresh = "update to current workspace"
+no_refpoints = "No reference points."
+from_panels = "From the current panels"
+ref_workspace = "Entire panel configuration ({panels})"
+ref_workspace_hint = "Records which panels exist, how each is configured, and which image (incl. XAI rendering) each one currently displays."
+ref_current_image = "Current image in P{pid}: {image_id} ({descr})"
+image_ids_label = "Image ids (free text)"
+image_ids_ph = "e.g. railper_0001, railper_0042"
+image_ids_hint = "Separated by comma or space; unknown ids are discarded."
+ref_models = "AI models (general)"
+ref_methods = "XAI methods (general)"
+ref_collections = "Collections"
+ref_collections_hint = "A referenced collection is protected against modifying management operations — so it stays what the note is talking about."
+ref_collection_in_panel = "open in a panel"
+open_collection_title = "Click: open this collection in a new panel"
+load_ws_title = "Click: load this panel configuration (replaces the current panels)"
+load_ws_confirm = "Discard the current panels and load the stored panel configuration?"
+open_image_title = "Click: open this image in a panel"
+
+[notes.noref]
+heading = "Save the note without a reference point?"
+body = "This note does not record what it is about. Experience shows that a week later nobody can tell which images, models or panel configuration were meant."
+hint = "“Entire panel configuration” at the top of the form records the current state in one click."
+back = "Back to the form"
+save = "Save anyway"
+
+[notes.target]
+heading = "Open image {image_id} in …"
+new_panel = "New panel"
+open = "Open"
+hint = "The image opens in single view; the target panel is switched to the stored rendering (model/level/XAI) and its filters are cleared (the gallery then shows the unfiltered image set in this rendering)."
+
+[notes.ref]
+image_title = "Reference point: image"
+workspace_title = "Reference point: entire panel configuration (snapshot)"
+panel_config_title = "Reference point: panel configuration (snapshot)"
+model_title = "Reference point: AI model"
+method_title = "Reference point: XAI method"
+collection_title = "Reference point: collection ({count} images)"
+collection_gone = "Collection {cid} (deleted)"
+collection_gone_title = "Reference point: collection – no longer exists"
+
+[report_entry]
+new = "New audit-report entry"
+new_title = "New audit-report entry"
+edit_title = "Edit audit-report entry {nid}"
+badge = "Audit-report entry"
+checkbox = "Audit-report entry"
+
+[protocol]
+requirements_heading = "Requirements"
+requirements_hint = "For each requirement, mark whether it is met or unmet. Leaving both unchecked means no assessment. Full text on hover or via the (i)."
+no_requirements = "No requirements catalog loaded."
+info_title = "Requirements catalog"
+col_req = "No."
+col_met = "met"
+col_unmet = "unmet"
+col_text = "Requirement"
+report = "Audit report"
+report_title = "Create an audit report from all audit-report entries (new tab)"
+
+[protocol.catalog]
+edit_title = "Edit the requirements catalog (your own version for this dataset)"
+heading = "Edit the requirements catalog"
+state_master = "Default"
+state_custom = "Your own version"
+warning = "Careful: changes can create inconsistencies with existing notes — rewording a requirement retroactively changes what existing assessments mean. Deleting a requirement removes it from all of your own audit-report entries."
+syntax_hint = "TOML format: one [[requirement]] block per requirement, containing label (e.g. \"A5\", identifies the requirement permanently), de and en. The order is free — the label is what counts."
+syntax_error = "The text is not valid TOML — nothing was saved."
+save = "Save"
+save_confirm = "Save? Assessments of deleted requirements will be lost."
+saved = "Saved."
+purged = "Assessments of deleted requirements were removed from {n} note(s)."
+reset = "Reset to default"
+reset_confirm = "Really reset? All your own changes to the requirements catalog will be lost."
+
+[protocol.catalog.warn]
+duplicate_label = "Label '{label}' occurs more than once (entry {index}) — only the first entry with that label is used."
+missing_lang = "Requirement {label}: no {lang} text — the other language is shown instead."
+missing_text = "Entry {index} ({label}) has no text at all and is ignored."
+empty = "The catalog contains no requirements."
+syntax = "The stored file is not valid TOML: {message}"
+
+[report]
+title = "Audit report"
+project = "Project"
+dataset = "Dataset"
+generated = "Generated on"
+print = "Print / save as PDF"
+download_pdf = "Download as PDF"
+pdf_unavailable = "PDF export unavailable (xhtml2pdf is not installed on this server)."
+pdf_failed = "Could not generate the PDF."
+overview_heading = "Overview: requirements"
+col_na = "no assessment"
+entries_heading = "Audit-report entries"
+no_entries = "No audit-report entries for this dataset."
+no_catalog = "No requirements catalog loaded."
+refpoints = "Reference points"
+assessed_none = "No requirement assessed."
+
+[badge]
+follows_title = "Image set is adopted from panel P{pid} – rendered with this panel's own configuration"
+source_title_prefix = "This image set is also used by:"
+collection_title = "Base image set from collection “{title}” (fixed snapshot)"
+
+[collection]
+cell_title = "Add to a collection"
+cell_empty_title = "No images in this cell"
+create_heading = "Create a collection from the ticked matrix cells"
+title_placeholder = "Collection title (optional)"
+create = "Create collection"
+open_new_panel = "Show in new panel"
+manage_title = "Manage collections"
+manage_heading = "Manage collections"
+empty = "No collections for this dataset yet."
+gone = "This collection no longer exists."
+title_required = "A title must not be empty."
+rename = "Rename"
+rename_title = "Save the title (does not change the image set)"
+renamed = "Collection is now called “{title}”."
+clone = "Copy"
+clone_title = "Create a copy of this collection"
+cloned = "Copy “{title}” created."
+copy_suffix = "copy"
+open_panel = "Open"
+open_panel_title = "Show the collection in a new panel"
+opened = "“{title}” opened in a new panel."
+delete_title = "Delete collection"
+delete_confirm = "Really delete collection “{title}”?"
+delete_blocked_title = "Cannot delete: the collection is referenced by notes"
+deleted = "Collection “{title}” deleted."
+delete_blocked = "“{title}” cannot be deleted: referenced by {notes}. Remove the reference point there first."
+merge_label = "Add images to:"
+merge = "Add"
+merge_hint = "This collection stays as it is; only the target grows. If the target is referenced (🔒), the result is stored in a copy."
+merged = "Added {added} image(s) from “{source}” to “{target}”."
+merge_invalid = "Invalid target collection."
+images_summary = "Show / remove images"
+no_images = "This collection is empty."
+image_missing = "Image no longer in the dataset"
+image_not_in_collection = "None of the selected images is (still) in the collection."
+no_selection = "No images selected."
+remove_tick_title = "Tick to remove"
+remove_selected_title = "Remove the ticked images from the collection"
+remove_selected_copy_title = "Remove the ticked images — the collection is referenced, so the result is stored as a copy"
+remove_selected_confirm = "Really remove the ticked images?"
+as_copy_hint = "The result will be stored as a copy."
+frozen_marker = "Referenced by notes: protected against modifying operations"
+frozen_by = "Referenced by:"
+frozen_hint = "modifying operations create a copy; renaming is exempt and deleting is refused"
+frozen_cloned = "“{original}” is referenced by {notes} and stays unchanged — the change was stored in the new collection “{copy}”."
+snapshot_refs = "Contained in workspace snapshots:"
+snapshot_refs_hint = "this does not protect the collection"
+open_note_title = "Open note"
+origin_confmatrix = "Confusion matrix · {model} / {level} · {cells} cell(s)"
+origin_clone = "Copy of “{title}”"
+
+[collection.remove_selected]
+one = "Remove {n} image"
+other = "Remove {n} images"
+
+[collection.images_removed]
+one = "Removed {n} image from “{title}”."
+other = "Removed {n} images from “{title}”."
+
+[filter.classification]
+label = "Classification"
+
+[filter.classification.opt]
+alle = "All"
+korrekt = "Correctly classified"
+inkorrekt = "Incorrectly classified"
+
+[filter.confidence]
+label = "Confidence"
+enable = "Restrict confidence"
+min_label = "min. confidence"
+max_label = "max. confidence"
+hint = "Confidence of the predicted class. With two classes it is never below 50 %."
+
+[filter.cat.umgebung]
+label = "Environment"
+
+[filter.cat.umgebung.opt]
+ueberland = "Open country"
+semi_urban = "Semi-urban"
+stadt = "City"
+bahnhof = "Station"
+tunnel = "Tunnel"
+bahnuebergang = "Level crossing"
+
+[filter.cat.objekte]
+label = "Objects"
+
+[filter.cat.objekte.opt]
+mensch = "Person"
+gebaeude = "Building"
+signal = "Signal"
+andere_zuege = "Other trains"
+ueberwiegend_vegetation = "Mostly vegetation"
+gewaesser = "Water"
+schutzwand = "Noise barrier"
+bruecke = "Bridge"
+
+[filter.cat.tageszeit]
+label = "Time of day"
+
+[filter.cat.tageszeit.opt]
+tag = "Day"
+daemmerung = "Dusk"
+nacht = "Night"
+indoor = "Indoor"
+
+[filter.cat.wetter]
+label = "Weather"
+
+[filter.cat.wetter.opt]
+sonnig = "Sunny"
+bewoelkt = "Cloudy"
+regen = "Rain"
+schnee = "Snow"
+nebel = "Fog"
+gegenlicht = "Backlight"
+
+[filter.dist.dist_lateral_m]
+label = "Lateral distance (from track)"
+unit = "m"
+
+[filter.dist.dist_longitudinal_m]
+label = "Longitudinal distance (line of sight)"
+unit = "m"
+
+[viewport]
+title = "Screen too narrow"
+body = "XAIminer places panels side by side and needs a wider screen for that. Please open the application on a desktop computer or a tablet in landscape orientation — or enlarge the browser window."
+
+[footer]
+product = "XAIminer (demonstrator)"
+imprint = "Imprint"
+privacy = "Privacy"
+contact = "Contact"
+deployment = "Deployment"
+local_dev = "local dev system"
+
+# Legal pages (/imprint, /privacy) — operator details live in the legal file, see the German catalogue.
+[legal]
+draft_notice = "Draft: the details in [square brackets] are still to be filled in."
+not_configured = "The operator of this instance has not provided these details yet."
+
+[imprint]
+title = "Legal notice"
+liability = "Liability"
+liability_text = "The content of this demonstrator serves research and demonstration purposes only. No warranty is given for the correctness of the model outputs and explanations shown; they are not a basis for decisions in productive operation."
+
+[privacy]
+title = "Privacy policy"
+controller = "Controller"
+data = "What data is processed"
+data_items = [
+  "Access data: when the pages are called up, the web server processes technically necessary log data (IP address, time, address called up, browser identification) to keep the service running.",
+  "Session: a technically necessary cookie holds your session. It contains the display name you chose, your language selection and a random identifier. It is not used for analysis and ends when you close the browser.",
+  "Content you enter: notes, report entries, requirements and the display name are stored on the server so that you find them again during your session.",
+]
+data_note = "No registration is required. The display name is freely chosen; it need not be your real name."
+retention = "Retention"
+retention_text = "Content created as a guest is deleted automatically after {h} hours. Content in accounts remains until the end of the project or until you ask for its deletion."
+external = "No third-party content"
+external_text = "Every part of these pages — styling and script libraries and fonts included — is served from this server. No third-party content is loaded, no analytics or tracking tools are used, and your input is not passed on to third parties."
+# Variant for instances configured to record interactions (tracking.py). The claim about third
+# parties stays true; the recording itself is described in the section below.
+external_text_tracking = "Every part of these pages — styling and script libraries and fonts included — is served from this server. No third-party content is loaded, no third-party analytics or tracking tools are used, and your input is not passed on to third parties."
+tracking = "Recording of interactions"
+tracking_text = "On this instance, a recording of interactions can be switched on for supervised usability sessions. It is off by default and is enabled by hand by whoever runs the session; while it runs, an \"(R)\" appears next to the product name. What is then recorded are the controls you click, the settings you change and the text you enter — never passwords — together with the time and your display name. The recording serves only to improve usability and is not passed on to third parties."
+legal_basis = "Legal basis"
+rights = "Your rights"

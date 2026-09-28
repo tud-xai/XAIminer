@@ -1,0 +1,17 @@
+{# Only the counter spans as out-of-band updates – refreshes the numbers in the dialog #}
+{# without touching checkboxes/radios/focus/gallery (response to /panel/<id>/filter-counts). #}
+{% for key, spec in filter_categories.items() %}
+  {% for value, label in spec.options.items() %}
+    <span id="cnt-{{ key }}-{{ value }}" hx-swap-oob="true">({{ counts.categories[key].get(value, 0) }})</span>
+  {% endfor %}
+{% endfor %}
+{% for value, label in classification_filter.options.items() %}
+  <span id="cnt-cls-{{ value or 'alle' }}" hx-swap-oob="true">({{ counts.classification.get(value, 0) }})</span>
+{% endfor %}
+{# Modelcard section: accuracy per option (depends on model/level only, not on the selection). #}
+<span id="acc-all" hx-swap-oob="true">({{ modelcard_accuracy.all | accuracy_pct }})</span>
+{% for key, spec in filter_categories.items() %}
+  {% for value, label in spec.options.items() %}
+    <span id="acc-{{ key }}-{{ value }}" hx-swap-oob="true">({{ modelcard_accuracy.categories[key].get(value) | accuracy_pct }})</span>
+  {% endfor %}
+{% endfor %}

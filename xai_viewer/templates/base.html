@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="{{ get_lang() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ product }}{% endblock %}</title>
+  <link href="{{ url_for('static', filename='vendor/bootstrap-5.3.3/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='vendor/bootstrap-icons-1.11.3/bootstrap-icons.min.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="{{ url_for('static', filename='vendor/htmx-2.0.4/htmx.min.js') }}"></script>
+</head>
+<body>
+
+{# Below the minimum width the app is blocked by this overlay: XAIminer compares panels SIDE BY
+   SIDE, which needs width — on a phone the layout is not merely cramped but unusable. Pure CSS
+   (media query in style.css), no JS: it appears and disappears as the window is resized, and
+   nothing can get out of sync. Rendered on every page (base.html), hence login → workspace alike. #}
+<div class="viewport-guard" role="alert">
+  <div class="viewport-guard-box">
+    <i class="bi bi-display viewport-guard-icon"></i>
+    <h1 class="h5">{{ t('viewport.title') }}</h1>
+    <p class="mb-0">{{ t('viewport.body') }}</p>
+  </div>
+</div>
+
+{# Everything except the footer lives in a container of at least one viewport height, so the footer starts exactly at the fold — visible only after scrolling. The navbar belongs INSIDE it; otherwise the footer would be pushed a navbar-height too far down. #}
+<div class="page-fold">
+
+<nav class="navbar navbar-dark bg-dark px-3">
+  <a class="navbar-brand fw-bold me-2" href="{{ url_for('workspace') if session.get('project') else '#' }}">
+    <i class="bi bi-train-front"></i> {{ product }}
+  </a>
+  {# Dimmed marker next to the product name: this is a demonstrator, on every page and in every
+     state — not only while nobody is signed in, where it used to sit on the far right. #}
+  {% set stable_key, stable_class = 'nav.demonstrator_tag', 'text-secondary small' %}{% include 'partials/_stable_label.html' %}
+  {# Usage-tracking marker. The slot is always present (so the island can swap the marker in
+     without a reload); it stays empty unless this session is recording. #}
+  {% if tracking_available %}<span id="tracking-marker" class="ms-1">{% include 'partials/_tracking_marker.html' %}</span>{% endif %}
+  {% if session.get("project") %}
+    <span class="text-light small ms-3">
+      <i class="bi bi-folder2-open"></i> {{ session.project.name }}
+      {% if allow_project_type_selection %}
+        <span class="badge text-bg-secondary ms-1">{{ t('nav.project_type_pruefung') if session.project.type == 'pruefung' else t('nav.project_type_test') }}</span>
+      {% endif %}
+    </span>
+  {% endif %}
+  <div class="ms-auto d-flex align-items-center gap-3">
+    {% if session.get("project") %}
+      {# Notes dock toggle: shows/hides the left column and (re)loads its content. #}
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              onclick="xaiToggleNotes()" title="{{ t('notes.toggle_title') }}">
+        <i class="bi bi-journal-text"></i> {% set stable_key, stable_class = 'nav.notes', 'stable-label-center' %}{% include 'partials/_stable_label.html' %}
+      </button>
+      {# Collections management: transient dialog in #modal-container (unlike the notes dock). #}
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              title="{{ t('collection.manage_title') }}"
+              hx-get="/collections" hx-target="#modal-container" hx-swap="innerHTML">
+        <i class="bi bi-collection"></i> {% set stable_key, stable_class = 'nav.collections', 'stable-label-center' %}{% include 'partials/_stable_label.html' %}
+      </button>
+    {% endif %}
+    {# The main application's help is the overview page, in a new tab so an open workspace stays. #}
+    {% set help_url = url_for('docs_page', page='overview') %}
+    {% include 'partials/_help_button.html' %}
+    <div class="btn-group btn-group-sm" role="group" aria-label="{{ t('nav.language') }}">
+      {% for code, name in LANGUAGES.items() %}
+        <a class="btn {{ 'btn-secondary' if get_lang() == code else 'btn-outline-secondary' }}"
+           href="{{ url_for('set_lang', code=code) }}" title="{{ name }}">{{ code | upper }}</a>
+      {% endfor %}
+    </div>
+    {% if session.get("user") %}
+      <span class="text-secondary small"><i class="bi bi-person"></i> {{ session.user }}</span>
+      <form method="post" action="{{ url_for('logout') }}" class="m-0">
+        <button class="btn btn-sm btn-outline-secondary">{% set stable_key, stable_class = 'nav.logout', 'stable-label-center' %}{% include 'partials/_stable_label.html' %}</button>
+      </form>
+    {% endif %}
+  </div>
+</nav>
+
+{# Notes dock: a left column sharing the row with the workspace (pushes panels right, never overlays). Hidden by default; the nav toggle shows it and loads the list into #notes-content. The create/edit form loads into the same #notes-content, so it stays inline in the column instead of covering the panels. #}
+<div class="d-flex align-items-start" id="app-body">
+  {% if session.get("project") %}
+    <aside id="notes-dock" class="notes-dock d-none">
+      <div class="d-flex align-items-center py-2 px-3 border-bottom">
+        <h6 class="mb-0 flex-grow-1"><i class="bi bi-journal-text"></i> {{ t('notes.sidebar_title') }}</h6>
+        <button type="button" class="btn-close" aria-label="{{ t('common.close') }}"
+                title="{{ t('notes.close_dock_title') }}"
+                onclick="xaiCloseNotesDock()"></button>
+      </div>
+      <div id="notes-content" class="p-3"></div>
+    </aside>
+  {% endif %}
+  <main class="container-fluid py-3" id="main-col">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+</div>{# /.page-fold #}
+
+{% include "partials/_footer.html" %}
+
+{# Secondary transient modals (e.g. the "open image in which panel?" chooser). #}
+<div id="modal-container"></div>
+
+<script src="{{ url_for('static', filename='vendor/bootstrap-5.3.3/bootstrap.bundle.min.js') }}"></script>
+<script>
+  // Notes dock controls. Defined once in base.html (not replaced by HTMX) → stable globals.
+  // Leaving a create/edit form (cancel / Escape / closing the dock) warns first when the form
+  // has unsaved changes — its own island marks #notes-content form with data-dirty="1".
+  window.xaiConfirmDiscard = function () {
+    const form = document.querySelector("#notes-content form");
+    return !(form && form.dataset.dirty === "1") || confirm({{ t('notes.discard_confirm') | tojson }});
+  };
+  window.xaiCancelNote = function () {
+    if (!xaiConfirmDiscard()) return;
+    htmx.ajax("GET", "/notes", { target: "#notes-content", swap: "innerHTML" });
+  };
+  window.xaiCloseNotesDock = function () {
+    if (!xaiConfirmDiscard()) return;
+    const dock = document.getElementById("notes-dock");
+    if (dock) dock.classList.add("d-none");
+  };
+  // Reveals the dock without touching its content — used when something else (the collections
+  // dialog listing referencing notes) loads a note form into #notes-content.
+  window.xaiShowNotesDock = function () {
+    const dock = document.getElementById("notes-dock");
+    if (dock) dock.classList.remove("d-none");
+  };
+  // Toggle for the nav button: show + load the list when hidden, else close (with the guard).
+  window.xaiToggleNotes = function () {
+    const dock = document.getElementById("notes-dock");
+    if (!dock) return;
+    if (dock.classList.contains("d-none")) {
+      dock.classList.remove("d-none");
+      htmx.ajax("GET", "/notes", { target: "#notes-content", swap: "innerHTML" });
+    } else {
+      xaiCloseNotesDock();
+    }
+  };
+</script>
+<script>
+  // The notes dock sticks to the top but, unscrolled, starts below the navbar — so its maximum
+  // height is one navbar less than the viewport. Published as --notes-dock-top for style.css.
+  // A ResizeObserver rather than a resize listener: the navbar also changes height without the
+  // window changing (wrapping on a long project name, language switch).
+  (function () {
+    var nav = document.querySelector(".page-fold > nav");
+    if (!nav) return;
+    var apply = function () {
+      document.documentElement.style.setProperty("--notes-dock-top", nav.offsetHeight + "px");
+    };
+    apply();
+    if (window.ResizeObserver) new ResizeObserver(apply).observe(nav);
+  })();
+</script>
+<script>
+  // Notes dock keyboard shortcuts. "n" opens the dock (when hidden). Escape peels back the
+  // topmost layer in order: a transient chooser modal (#modal-container), the requirements
+  // legend, an open create/edit form (= cancel, with the unsaved-changes guard), then the
+  // dock itself. "n" is ignored while typing; Escape is not, so it can cancel a focused form.
+  // Single listener in base.html (not replaced by HTMX).
+  (function () {
+    if (window.__xaiNotesKeys) return;
+    window.__xaiNotesKeys = true;
+    document.addEventListener("keydown", function (e) {
+      const tgt = e.target;
+      const inField = tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA"
+                              || tgt.tagName === "SELECT" || tgt.isContentEditable);
+      if (e.key === "n" || e.key === "N") {
+        if (inField) return;
+        const dock = document.getElementById("notes-dock");
+        if (dock && dock.classList.contains("d-none")) { e.preventDefault(); xaiToggleNotes(); }
+        return;
+      }
+      if (e.key !== "Escape") return;
+      const mc = document.getElementById("modal-container");
+      if (mc && mc.innerHTML.trim() !== "") { e.preventDefault(); mc.innerHTML = ""; return; }
+      const noRef = document.getElementById("note-noref-modal");
+      if (noRef && !noRef.classList.contains("d-none")) {
+        // The "no reference point" warning is a layer of its own: Escape must dismiss it and
+        // return to the form, not cancel the form underneath it.
+        e.preventDefault();
+        noRef.classList.add("d-none");
+        noRef.classList.remove("d-block");
+        return;
+      }
+      const legend = document.getElementById("req-info-modal");
+      if (legend && !legend.classList.contains("d-none")) {
+        e.preventDefault();
+        legend.classList.add("d-none");
+        legend.classList.remove("d-block");
+        return;
+      }
+      if (document.querySelector("#notes-content form")) { e.preventDefault(); xaiCancelNote(); return; }
+      const dock = document.getElementById("notes-dock");
+      if (dock && !dock.classList.contains("d-none")) { e.preventDefault(); xaiCloseNotesDock(); }
+    });
+  })();
+</script>
+<script>
+  // Arrow keys advance all single-image panels in sync (provisional coupling).
+  // Placed in base.html (not replaced by HTMX) → exactly one listener.
+  (function () {
+    if (window.__xaiKeyNav) return;
+    window.__xaiKeyNav = true;
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"
+                || t.tagName === "SELECT" || t.isContentEditable)) return;
+      const el = document.getElementById("data-page");
+      if (!el) return;
+      let pd;
+      try { pd = JSON.parse(el.textContent); } catch (_) { return; }
+      if (!pd.linked_single_panel_ids || !pd.linked_single_panel_ids.length) return;
+      e.preventDefault();
+      htmx.ajax("POST", "/step-all/" + (e.key === "ArrowLeft" ? "prev" : "next"),
+                { target: "#workspace", swap: "outerHTML" });
+    });
+  })();
+</script>
+<script>
+  // Link toggle: immediately flips the button + data-linked on the client side (no workspace re-render).
+  // The hx-post persists the state in the background only (204), keeping the click instant.
+  window.xaiToggleLink = function (btn, pid) {
+    const linked = btn.classList.toggle("btn-primary");
+    btn.classList.toggle("btn-outline-secondary", !linked);
+    btn.title = linked
+      ? {{ t('panel.link.unlink_title') | tojson }}
+      : {{ t('panel.link.link_title') | tojson }};
+    const g = document.querySelector('.panel-gallery[data-panel-id="' + pid + '"]');
+    if (g) g.dataset.linked = linked ? "1" : "0";
+  };
+</script>
+<script>
+  // Coupled gallery scrolling: linked panels (data-linked="1") scroll proportionally together.
+  // Proportional (not absolute) → stays meaningful even when panels have different image counts.
+  // Single listener in the capture phase (scroll events do not bubble). Echo-guard via
+  // WeakSet so programmatic sets do not trigger a feedback loop. Scroll positions are
+  // restored across HTMX swaps so clicks do not reset the galleries.
+  (function () {
+    if (window.__xaiScrollSync) return;
+    window.__xaiScrollSync = true;
+
+    const scrollPct = {};               // panelId -> last scroll fraction (for restore)
+    const ignoreNext = new WeakSet();   // elements whose next (echo) scroll event is ignored
+
+    function frac(el) {
+      const max = el.scrollHeight - el.clientHeight;
+      return max > 0 ? el.scrollTop / max : 0;
+    }
+
+    document.addEventListener("scroll", function (e) {
+      const el = e.target;
+      if (!(el instanceof Element) || !el.classList || !el.classList.contains("panel-gallery")) return;
+
+      if (ignoreNext.has(el)) {                 // self-triggered echo: suppress
+        ignoreNext.delete(el);
+        if (el.dataset.panelId) scrollPct[el.dataset.panelId] = frac(el);
+        return;
+      }
+
+      const pct = frac(el);
+      if (el.dataset.panelId) scrollPct[el.dataset.panelId] = pct;
+      if (el.dataset.linked !== "1") return;    // unlinked panel: nothing to couple
+
+      document.querySelectorAll('.panel-gallery[data-linked="1"]').forEach(function (g) {
+        if (g === el) return;
+        const gmax = g.scrollHeight - g.clientHeight;
+        const target = pct * gmax;
+        if (Math.abs(g.scrollTop - target) < 1) return;   // already there → do not trigger echo
+        ignoreNext.add(g);
+        g.scrollTop = target;
+        if (g.dataset.panelId) scrollPct[g.dataset.panelId] = pct;
+      });
+    }, true);
+
+    document.body.addEventListener("htmx:afterSwap", function () {
+      document.querySelectorAll(".panel-gallery").forEach(function (g) {
+        const pid = g.dataset.panelId;
+        if (pid && scrollPct[pid] != null) {
+          const max = g.scrollHeight - g.clientHeight;
+          ignoreNext.add(g);
+          g.scrollTop = scrollPct[pid] * max;
+        }
+      });
+    });
+  })();
+</script>
+{% if tracking_available %}
+<script>
+  // Usage tracking (opt-in; see tracking.py for what is recorded and why). Ships ONLY when the
+  // configuration enables it — a normal instance contains none of this code, which is what keeps
+  // the privacy statement's "no analytics or tracking tools" true.
+  //
+  // One island for two jobs, because both need the same piece of state: the shortcut that arms
+  // the mode, and the recorder that runs while it is armed. In base.html (never replaced by
+  // HTMX) → exactly one set of listeners, surviving every swap.
+  (function () {
+    if (window.__xaiTracking) return;
+    var state = window.__xaiTracking = {
+      // Armed for this browser session? Comes from the server so a page load keeps the mode.
+      on: {{ 'true' if tracking_on else 'false' }},
+      // Is this page part of the main application? Nothing is recorded outside it (the login
+      // area carries passwords, and the interesting part starts with panel 1's dialog).
+      inScope: {{ 'true' if tracking_in_scope else 'false' }},
+      queue: [],
+      timer: null,
+    };
+
+    var MAX_QUEUE = 40;      // flush once this many events piled up …
+    var FLUSH_MS = 3000;     // … or this long after the first one
+    var TEXT_MAX = 300;
+
+    // ── the shortcut ──────────────────────────────────────────────────────────
+    // Ctrl+Alt+Shift+T, matched on the PHYSICAL key: with Alt held, macOS reports the composed
+    // character ("†") and a German layout reports AltGr characters, so e.key is not the letter
+    // on the cap. Deliberately not Ctrl+Shift+R — that is the browsers' hard reload.
+    document.addEventListener("keydown", function (e) {
+      if (!e.ctrlKey || !e.altKey || !e.shiftKey || e.code !== {{ tracking_shortcut_code | tojson }}) return;
+      e.preventDefault();   // also keeps the combination out of a focused text field
+      fetch("/tracking/toggle", { method: "POST", credentials: "same-origin" })
+        .then(function (r) {
+          if (!r.ok) return null;
+          // The new state comes from the header, not from the body: outside the main
+          // application the body is empty because there is no marker to show, which is not
+          // the same as "not recording".
+          var on = r.headers.get("X-Tracking") === "on";
+          return r.text().then(function (html) { return { on: on, html: html }; });
+        })
+        .then(function (result) {
+          if (!result) return;
+          state.on = result.on;
+          var slot = document.getElementById("tracking-marker");
+          if (slot) slot.innerHTML = result.html;   // absent outside the main application
+          if (state.on) record("page", { label: document.title });
+          else { state.queue.length = 0; }          // switched off: drop what was not sent yet
+        })
+        .catch(function () {});                     // tracking must never break the page
+    });
+
+    if (!state.inScope) return;                     // shortcut only: nothing here is recorded
+
+    // ── describing what was interacted with ───────────────────────────────────
+
+    function clip(s, n) {
+      return String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
+    }
+
+    /** A password field is never read. The server drops such values a second time (tracking.py). */
+    function isSecret(el) {
+      return (el.type || "").toLowerCase() === "password"
+             || /pass|pwd|secret/i.test((el.name || "") + " " + (el.id || ""));
+    }
+
+    /** The visible text of an input's own <label> — for a checkbox that IS its name. */
+    function labelText(el) {
+      var own = el.closest && el.closest("label");
+      if (own) return own.textContent;
+      if (el.id) {
+        try {
+          var lbl = document.querySelector('label[for="' + (window.CSS && CSS.escape
+                                                            ? CSS.escape(el.id) : el.id) + '"]');
+          if (lbl) return lbl.textContent;
+        } catch (_) { /* an id that is not a valid selector: fall through */ }
+      }
+      var box = el.closest && el.closest(".form-check");
+      var sibling = box && box.querySelector("label");
+      return sibling ? sibling.textContent : "";
+    }
+
+    var HX_VERBS = ["get", "post", "put", "patch", "delete"];
+
+    function hxOf(el) {
+      for (var i = 0; i < HX_VERBS.length; i++) {
+        var target = el.getAttribute && el.getAttribute("hx-" + HX_VERBS[i]);
+        if (target) return HX_VERBS[i] + " " + clip(target, 200);
+      }
+      return "";
+    }
+
+    // Tags whose text content IS their caption. For anything else (a form, the navbar, a
+    // layout div) textContent is the text of the whole subtree — a 300-character blob that
+    // says nothing about what was clicked, so those get a label only from aria-label/title.
+    var CAPTION_TAGS = { BUTTON: 1, A: 1, LABEL: 1, SUMMARY: 1, OPTION: 1, LI: 1, TD: 1, TH: 1 };
+
+    /** What the analysis needs to recognise an element again: identity, visible name, context. */
+    function describe(el) {
+      var out = {};
+      if (!el || !el.tagName) return out;
+      out.tag = el.tagName;
+      if (el.id) out.el_id = clip(el.id, 120);
+      if (el.name) out.name = clip(el.name, 120);
+      if (el.type) out.input_type = clip(el.type, 20);
+      var captioned = CAPTION_TAGS[el.tagName]
+                      || (el.getAttribute && el.getAttribute("role") === "button");
+      var label = (el.getAttribute && (el.getAttribute("aria-label") || el.getAttribute("title")))
+                  || labelText(el) || (captioned ? el.textContent : "");
+      label = clip(label, TEXT_MAX);
+      if (label) out.label = label;
+      var hx = hxOf(el);
+      if (hx) out.hx = hx;
+      var panel = el.closest && el.closest(".panel-card, [data-panel-id]");
+      if (panel) {
+        out.panel = clip(panel.dataset && panel.dataset.panelId
+                         ? panel.dataset.panelId : (panel.id || "").replace(/^panel-/, ""), 20);
+      }
+      // Which layer the click happened in — a click in the config dialog means something else
+      // than the same button in the notes dock.
+      var dialog = el.closest && el.closest(".modal, #notes-dock, #modal-container");
+      if (dialog && dialog.id) out.dialog = clip(dialog.id, 120);
+      return out;
+    }
+
+    /** The value a field now has. Checkboxes and radios report their state, not just their value. */
+    function valueOf(el) {
+      if (isSecret(el)) return "";
+      var type = (el.type || "").toLowerCase();
+      if (type === "checkbox" || type === "radio") {
+        return (el.checked ? "checked" : "unchecked") + (el.value ? " " + clip(el.value, 100) : "");
+      }
+      if (el.tagName === "SELECT") return clip(el.value, 200);
+      return clip(el.value, 500);
+    }
+
+    // ── queue ─────────────────────────────────────────────────────────────────
+
+    function record(kind, fields) {
+      // inScope is checked here rather than at every call site: the shortcut handler above runs
+      // on pages where the recorder does not, and must not queue anything there.
+      if (!state.on || !state.inScope) return;
+      // toISOString() is UTC and says so ("…Z"); the server stamps its own time with an offset
+      // (tracking.py), so the two are directly comparable in the recorded line.
+      var event = { kind: kind, ts: new Date().toISOString(),
+                    path: clip(location.pathname + location.search, 300) };
+      // Empty is dropped — except for a field's value, where "" is the fact that someone
+      // cleared it. The server keeps that distinction (tracking.py).
+      for (var key in fields) {
+        if (fields[key] || (key === "value" && fields[key] === "")) event[key] = fields[key];
+      }
+      state.queue.push(event);
+      if (state.queue.length >= MAX_QUEUE) flush(false);
+      else if (!state.timer) state.timer = setTimeout(function () { flush(false); }, FLUSH_MS);
+    }
+
+    function flush(unloading) {
+      if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+      if (!state.queue.length) return;
+      var body = JSON.stringify({ events: state.queue.splice(0, state.queue.length) });
+      // While the page is going away, fetch() is cancelled — sendBeacon is the only reliable
+      // way out, and it is why a click on a link is not lost.
+      if (unloading && navigator.sendBeacon) {
+        navigator.sendBeacon("/track", new Blob([body], { type: "application/json" }));
+        return;
+      }
+      fetch("/track", { method: "POST", credentials: "same-origin", keepalive: true,
+                        headers: { "Content-Type": "application/json" }, body: body })
+        .catch(function () {});
+    }
+
+    // ── what is recorded ──────────────────────────────────────────────────────
+    // Capture phase throughout: a handler that stops propagation (or a swap that removes the
+    // element) must not cost us the event.
+
+    /** From the clicked node up to the thing a person would say they clicked on. */
+    var INTERACTIVE = "button, a, input, select, textarea, label, summary, [role=button], " +
+                      "[hx-get], [hx-post], [hx-put], [hx-patch], [hx-delete], .list-group-item";
+
+    document.addEventListener("click", function (e) {
+      if (!state.on) return;
+      var el = e.target;
+      if (!el || !el.closest) return;
+      var target = el.closest(INTERACTIVE) || el;
+      var fields = describe(target);
+      // A label click is the browser's way of ticking the box; the change event carries the
+      // value, so here only the identity is interesting.
+      record("click", fields);
+    }, true);
+
+    document.addEventListener("change", function (e) {
+      if (!state.on) return;
+      var el = e.target;
+      if (!el || !el.tagName) return;
+      var fields = describe(el);
+      fields.value = valueOf(el);
+      record("change", fields);
+    }, true);
+
+    document.addEventListener("submit", function (e) {
+      if (!state.on) return;
+      record("submit", describe(e.target));
+    }, true);
+
+    // Only the application's own shortcuts, not everything typed: free text arrives via the
+    // change event, whole and once, instead of as a stream of keystrokes.
+    var TRACKED_KEYS = { Escape: 1, ArrowLeft: 1, ArrowRight: 1, n: 1, N: 1, Enter: 1 };
+
+    document.addEventListener("keydown", function (e) {
+      if (!state.on || !TRACKED_KEYS[e.key]) return;
+      var el = e.target;
+      var inField = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA"
+                           || el.tagName === "SELECT" || el.isContentEditable);
+      if (inField && e.key !== "Escape" && e.key !== "Enter") return;   // ordinary typing
+      record("key", { key: clip(e.key, 40), tag: el && el.tagName, el_id: el && el.id });
+    }, true);
+
+    document.body.addEventListener("htmx:beforeRequest", function (e) {
+      if (!state.on) return;
+      var cfg = e.detail && e.detail.requestConfig;
+      if (!cfg) return;
+      record("request", { hx: clip((cfg.verb || "") + " " + (cfg.path || ""), 240) });
+    });
+
+    // A navigation ends the page, so flush before it is gone. visibilitychange covers the tab
+    // being switched away or the phone being locked, where pagehide may never fire.
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") flush(true);
+    });
+    window.addEventListener("pagehide", function () { flush(true); });
+
+    record("page", { label: document.title });
+  })();
+</script>
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

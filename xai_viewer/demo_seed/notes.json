@@ -1,0 +1,205 @@
+{
+  "notes": [
+    {
+      "user": "ExampleUser",
+      "dataset": "RailPer",
+      "include_in_report": false,
+      "title": "GradCAM shows artifacts at the borders of the image for VGG high",
+      "text": "Affected are almost all GradCAM images for this model",
+      "requirement_status": {},
+      "refpoints": [
+        {
+          "type": "workspace",
+          "panels": [
+            {
+              "panel_id": 1,
+              "model": "VGG16",
+              "level": "high",
+              "xai_method": "original",
+              "mode": "images",
+              "filters": {
+                "dist_lateral_m": [
+                  0,
+                  20
+                ],
+                "dist_longitudinal_m": [
+                  0,
+                  1000
+                ],
+                "klassifikation": "inkorrekt",
+                "konfidenz": [
+                  0,
+                  100
+                ],
+                "konfidenz_aktiv": false,
+                "objekte": [],
+                "tageszeit": [],
+                "umgebung": [],
+                "wetter": []
+              },
+              "modelcard_filter": null,
+              "image_source": {
+                "type": "filter"
+              },
+              "visible": true,
+              "view": "single",
+              "current_image": {
+                "image_id": "railgoerl24_NSZ2_10_1_RentnerMitKrueke.mp4_2024-04-25_XRAISE_NSZ2_10_1_RentnerMitKrueke_00001110",
+                "rel": "originals/imgs/railgoerl24_NSZ2_10_1_RentnerMitKrueke.mp4_2024-04-25_XRAISE_NSZ2_10_1_RentnerMitKrueke_00001110.jpg"
+              }
+            },
+            {
+              "panel_id": 3,
+              "model": "VGG16",
+              "level": "high",
+              "xai_method": "Grad-CAM",
+              "mode": "images",
+              "filters": {
+                "dist_lateral_m": [
+                  0,
+                  20
+                ],
+                "dist_longitudinal_m": [
+                  0,
+                  1000
+                ],
+                "klassifikation": "inkorrekt",
+                "konfidenz": [
+                  0,
+                  100
+                ],
+                "konfidenz_aktiv": false,
+                "objekte": [],
+                "tageszeit": [],
+                "umgebung": [],
+                "wetter": []
+              },
+              "modelcard_filter": null,
+              "image_source": {
+                "type": "filter"
+              },
+              "visible": true,
+              "view": "single",
+              "current_image": {
+                "image_id": "railgoerl24_NSZ2_10_1_RentnerMitKrueke.mp4_2024-04-25_XRAISE_NSZ2_10_1_RentnerMitKrueke_00001110",
+                "rel": "xai/VGG16/Grad-CAM/high/railgoerl24_NSZ2_10_1_RentnerMitKrueke.mp4_2024-04-25_XRAISE_NSZ2_10_1_RentnerMitKrueke_00001110_gradcam.jpg"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "user": "ExampleUser",
+      "dataset": "SynthRail-v3",
+      "include_in_report": false,
+      "title": "Clever Hans Effect",
+      "text": "Trap model mistakenly interprets building as a person. Clean model does not focus on the building.",
+      "requirement_status": {},
+      "refpoints": [
+        {
+          "type": "workspace",
+          "panels": [
+            {
+              "panel_id": 1,
+              "model": "ResNet18",
+              "level": "trap",
+              "xai_method": "original",
+              "mode": "images",
+              "filters": {
+                "dist_lateral_m": [
+                  0,
+                  20
+                ],
+                "dist_longitudinal_m": [
+                  0,
+                  1000
+                ],
+                "klassifikation": "inkorrekt",
+                "objekte": [],
+                "tageszeit": [],
+                "umgebung": [],
+                "wetter": []
+              },
+              "modelcard_filter": null,
+              "image_source": {
+                "type": "filter"
+              },
+              "visible": true,
+              "view": "single",
+              "current_image": {
+                "image_id": "seed8000654",
+                "rel": "originals/imgs/seed8000654.png"
+              }
+            },
+            {
+              "panel_id": 3,
+              "model": "ResNet18",
+              "level": "trap",
+              "xai_method": "LRP",
+              "mode": "images",
+              "filters": {
+                "dist_lateral_m": [
+                  0,
+                  20
+                ],
+                "dist_longitudinal_m": [
+                  0,
+                  1000
+                ],
+                "klassifikation": "inkorrekt",
+                "objekte": [],
+                "tageszeit": [],
+                "umgebung": [],
+                "wetter": []
+              },
+              "modelcard_filter": null,
+              "image_source": {
+                "type": "filter"
+              },
+              "visible": true,
+              "view": "single",
+              "current_image": {
+                "image_id": "seed8000654",
+                "rel": "xai/ResNet18/LRP/trap/seed8000654_lrp.jpg"
+              }
+            },
+            {
+              "panel_id": 4,
+              "model": "ResNet18",
+              "level": "clean",
+              "xai_method": "LRP",
+              "mode": "images",
+              "filters": {
+                "dist_lateral_m": [
+                  0,
+                  20
+                ],
+                "dist_longitudinal_m": [
+                  0,
+                  1000
+                ],
+                "klassifikation": "inkorrekt",
+                "objekte": [],
+                "tageszeit": [],
+                "umgebung": [],
+                "wetter": []
+              },
+              "modelcard_filter": null,
+              "image_source": {
+                "id": 1,
+                "type": "panel"
+              },
+              "visible": true,
+              "view": "single",
+              "current_image": {
+                "image_id": "seed8000654",
+                "rel": "xai/ResNet18/LRP/clean/seed8000654_lrp.jpg"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

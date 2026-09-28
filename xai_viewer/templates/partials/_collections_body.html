@@ -1,0 +1,175 @@
+{# Body of the collections dialog (swapped into #collections-body by every action). One card per collection: rename inline, clone, open in a panel, merge into another one, remove single images, delete. A collection referenced by a note is FROZEN (lock marker): destructive actions do not change it but store the result in a copy — the button labels say so before you click, the notice says what happened after. Deleting a referenced collection is refused and the notes are listed instead. #}
+{% if notice %}
+  <div class="alert alert-{{ notice.kind }} py-2 small" role="alert">{{ notice.text }}</div>
+{% endif %}
+
+{% for c in collections %}
+  <div class="card mb-3">
+    <div class="card-body p-2">
+
+      {# ── header: title (inline rename) + count + the actions that never destroy anything ── #}
+      <div class="d-flex align-items-center flex-wrap gap-2">
+        <form class="d-flex align-items-center gap-1 flex-grow-1"
+              hx-post="/collections/{{ c.id }}/rename"
+              hx-target="#collections-body" hx-swap="innerHTML">
+          {% if c.frozen %}
+            <i class="bi bi-lock-fill text-warning" title="{{ t('collection.frozen_marker') }}"></i>
+          {% endif %}
+          <input type="text" class="form-control form-control-sm" name="title" value="{{ c.title }}"
+                 maxlength="100" aria-label="{{ t('collection.rename') }}" style="max-width: 22rem;">
+          <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-1"
+                  title="{{ t('collection.rename_title') }}">
+            <i class="bi bi-check-lg"></i>
+          </button>
+        </form>
+        <span class="badge text-bg-light border">{{ nt(c.count, 'gallery.image_count') }}</span>
+        <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1"
+                title="{{ t('collection.open_panel_title') }}"
+                hx-post="/collections/{{ c.id }}/open-panel"
+                hx-target="#collections-body" hx-swap="innerHTML">
+          <i class="bi bi-box-arrow-up-right"></i> {{ t('collection.open_panel') }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1"
+                title="{{ t('collection.clone_title') }}"
+                hx-post="/collections/{{ c.id }}/clone"
+                hx-target="#collections-body" hx-swap="innerHTML">
+          <i class="bi bi-files"></i> {{ t('collection.clone') }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1"
+                title="{{ t('collection.delete_blocked_title') if c.frozen else t('collection.delete_title') }}"
+                hx-post="/collections/{{ c.id }}/delete"
+                {% if not c.frozen %}hx-confirm="{{ t('collection.delete_confirm', title=c.title) }}"{% endif %}
+                hx-target="#collections-body" hx-swap="innerHTML">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+
+      <div class="text-muted mt-1" style="font-size: .75rem">
+        {% if c.origin_descr %}{{ c.origin_descr }} · {% endif %}
+        {{ c.user }} · {{ c.updated_at | replace("T", " ") }}
+      </div>
+
+      {# ── reference situation: explicit note references freeze, workspace snapshots only inform ── #}
+      {% if c.note_refs %}
+        <div class="small text-warning-emphasis mt-1">
+          <i class="bi bi-lock-fill"></i> {{ t('collection.frozen_by') }}
+          {% for n in c.note_refs %}
+            <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
+                    title="{{ t('collection.open_note_title') }}"
+                    hx-get="/notes/{{ n.id }}/edit" hx-target="#notes-content" hx-swap="innerHTML"
+                    hx-on::after-request="xaiShowNotesDock(); document.getElementById('modal-container').innerHTML = '';">#{{ n.id }} {{ n.title }}</button>{{ "," if not loop.last }}
+          {% endfor %}
+          <span class="text-muted">— {{ t('collection.frozen_hint') }}</span>
+        </div>
+      {% endif %}
+      {% if c.snapshot_refs %}
+        <div class="small text-muted mt-1">
+          <i class="bi bi-window-split"></i> {{ t('collection.snapshot_refs') }}
+          {% for n in c.snapshot_refs %}#{{ n.id }} {{ n.title }}{{ ", " if not loop.last }}{% endfor %}
+          — {{ t('collection.snapshot_refs_hint') }}
+        </div>
+      {% endif %}
+
+      {# ── merge: add THIS collection's images to another one (the target is what changes) ── #}
+      {% if collections | length > 1 %}
+        <form class="d-flex align-items-center flex-wrap gap-1 mt-2"
+              hx-post="/collections/{{ c.id }}/merge-into"
+              hx-target="#collections-body" hx-swap="innerHTML">
+          <span class="small">{{ t('collection.merge_label') }}</span>
+          <select class="form-select form-select-sm" name="target" style="max-width: 20rem;"
+                  aria-label="{{ t('collection.merge_label') }}">
+            {% for other in collections if other.id != c.id %}
+              <option value="{{ other.id }}">
+                {{ '🔒 ' if other.frozen }}{{ other.title }} ({{ nt(other.count, 'gallery.image_count') }})
+              </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-1">
+            <i class="bi bi-plus-lg"></i> {{ t('collection.merge') }}
+          </button>
+          <span class="form-text m-0">{{ t('collection.merge_hint') }}</span>
+        </form>
+      {% endif %}
+
+      {# ── the images themselves: folded away, tick what should go, remove as one batch ── #}
+      {# open_cid keeps this unfolded across a swap (the open state is DOM-only, see _render_collections_body). #}
+      <details class="mt-2" {{ 'open' if c.id == open_cid }}>
+        <summary class="small">{{ t('collection.images_summary') }}</summary>
+        {% if c.images %}
+          {# One form per collection: the batch is the point — a single request means a frozen collection is cloned exactly once, with all removals in that one copy. #}
+          <form id="col-form-{{ c.id }}"
+                hx-post="/collections/{{ c.id }}/remove-images"
+                hx-target="#collections-body" hx-swap="innerHTML">
+            {# Action bar directly under the summary and sticky: with a few hundred images the button must never be a scroll away. #}
+            <div class="d-flex align-items-center gap-2 py-2"
+                 style="position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg);">
+              <button type="submit" class="btn btn-sm btn-outline-danger" id="col-remove-{{ c.id }}"
+                      disabled
+                      data-label-one="{{ t('collection.remove_selected.one', n='{n}') }}"
+                      data-label-other="{{ t('collection.remove_selected.other', n='{n}') }}"
+                      hx-confirm="{{ t('collection.remove_selected_confirm') }}"
+                      title="{{ t('collection.remove_selected_copy_title') if c.frozen else t('collection.remove_selected_title') }}">
+                <i class="bi bi-trash"></i>
+                <span id="col-remove-label-{{ c.id }}">{{ nt(0, 'collection.remove_selected') }}</span>
+              </button>
+              {% if c.frozen %}
+                <span class="small text-warning-emphasis">
+                  <i class="bi bi-lock-fill"></i> {{ t('collection.as_copy_hint') }}
+                </span>
+              {% endif %}
+            </div>
+            {# Viewport-relative cap, like the requirements table in _note_form.html: a fixed rem height left most of a large screen unused while looking fine on a small one. #}
+            <div class="d-flex flex-wrap gap-2 border rounded p-2"
+                 style="max-height: 60vh; overflow-y: auto;">
+              {% for img in c.images %}
+                <div class="text-center" style="width: 5.5rem;">
+                  {% if img.missing %}
+                    <div class="border rounded d-flex align-items-center justify-content-center text-muted"
+                         style="height: 4rem;" title="{{ t('collection.image_missing') }}">
+                      <i class="bi bi-question-lg"></i>
+                    </div>
+                  {% else %}
+                    <img src="{{ img.url }}" alt="{{ img.id }}" loading="lazy"
+                         class="img-fluid rounded border" style="height: 4rem; object-fit: cover;">
+                  {% endif %}
+                  <div class="text-truncate" style="font-size: .7rem" title="{{ img.id }}">{{ img.id }}</div>
+                  <div class="form-check d-flex justify-content-center mt-1">
+                    <input class="form-check-input" type="checkbox" name="image_id"
+                           value="{{ img.id }}" id="col-{{ c.id }}-img-{{ loop.index0 }}"
+                           aria-label="{{ img.id }}"
+                           title="{{ t('collection.remove_tick_title') }}">
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </form>
+        {% else %}
+          <div class="text-muted small mt-2">{{ t('collection.no_images') }}</div>
+        {% endif %}
+      </details>
+
+    </div>
+  </div>
+
+  {% if c.images %}
+    {# Island: keeps the batch button's count in sync and disables it at zero. IIFE + per-collection ids → nothing in the global scope, safe for many cards and for every HTMX swap. Both plural forms come from the catalogue as templates with a literal {n}. #}
+    <script>
+      (function () {
+        const form = document.getElementById("col-form-{{ c.id }}");
+        if (!form) return;
+        const btn = document.getElementById("col-remove-{{ c.id }}");
+        const label = document.getElementById("col-remove-label-{{ c.id }}");
+        function sync() {
+          const n = form.querySelectorAll('input[name="image_id"]:checked').length;
+          const tpl = n === 1 ? btn.dataset.labelOne : btn.dataset.labelOther;
+          label.textContent = tpl.replace("{n}", n);
+          btn.disabled = n === 0;
+        }
+        form.addEventListener("change", sync);
+        sync();
+      })();
+    </script>
+  {% endif %}
+{% else %}
+  <div class="text-muted small">{{ t('collection.empty') }}</div>
+{% endfor %}

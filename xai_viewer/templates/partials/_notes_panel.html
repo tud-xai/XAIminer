@@ -1,0 +1,20 @@
+{# Notes dock content: actions + the list. Loaded into #notes-content. The "new" button loads the form into the same #notes-content (inline, replaces this panel); the report opens in a new tab. #}
+{% if notice %}
+  <div class="alert alert-{{ notice.kind }} py-2 small" role="alert">{{ notice.text }}</div>
+{% endif %}
+<div class="d-flex flex-wrap gap-2 mb-2">
+  {# One button; its label follows the project mode. The dialog's switch still lets you flip either way per note. #}
+  <button type="button" class="btn btn-sm btn-success"
+          hx-get="/notes/new" hx-target="#notes-content" hx-swap="innerHTML">
+    {% if session.project.type == 'pruefung' %}
+      <i class="bi bi-clipboard-check"></i> {{ t('report_entry.new') }}
+    {% else %}
+      <i class="bi bi-plus-circle"></i> {{ t('notes.new') }}
+    {% endif %}
+  </button>
+  <a class="btn btn-sm btn-outline-primary ms-auto" href="/report" target="_blank"
+     title="{{ t('protocol.report_title') }}">
+    <i class="bi bi-file-earmark-text"></i> {{ t('protocol.report') }}
+  </a>
+</div>
+<div id="notes-list">{% include "partials/_notes_list.html" %}</div>

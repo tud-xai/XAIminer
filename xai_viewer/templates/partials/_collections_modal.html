@@ -1,0 +1,27 @@
+{# Collections management dialog (opened from the nav bar into #modal-container). Shell only — every action re-renders just the body (#collections-body), so the dialog stays open and the scroll position of the outer modal survives. Escape closes it via the generic #modal-container handler in base.html. #}
+<div class="modal d-block show" tabindex="-1" style="background: rgba(0,0,0,0.5);" id="collections-modal">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header py-2">
+        <h5 class="modal-title">
+          <i class="bi bi-collection"></i> {{ t('collection.manage_heading') }}
+        </h5>
+        <button type="button" class="btn-close" aria-label="{{ t('common.close') }}"
+                onclick="document.getElementById('modal-container').innerHTML = ''"></button>
+      </div>
+
+      <div class="modal-body" id="collections-body">
+        {% include "partials/_collections_body.html" %}
+      </div>
+
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary"
+                onclick="document.getElementById('modal-container').innerHTML = ''">
+          {{ t('common.close') }}
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>

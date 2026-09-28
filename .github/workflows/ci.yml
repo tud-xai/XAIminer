@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    defaults:
+      run:
+        working-directory: xai_viewer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: xai_viewer/requirements.txt
+
+      # Node runs the JS "island" tests (tests/test_islands.py); without it they are skipped.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      # The test fixture: a small synthetic dataset, generated next to the checkout
+      # (../../datasets/mock relative to xai_viewer/, the app's default datasets root).
+      - name: Build mock dataset
+        run: |
+          python tools/make_mock_dataset.py
+          python tools/build_metadata.py mock
+
+      - name: Check test numbering
+        run: python tests/check_test_numbers.py
+
+      - name: Run tests
+        run: python -m pytest tests/ -rs

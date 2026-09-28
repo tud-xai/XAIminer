@@ -1,0 +1,64 @@
+  {# Requirements assessment: always in the DOM (verdicts survive toggling the switch); shown only for a report entry. Per requirement two mutually exclusive checkboxes (met/unmet); empty = no assessment. Full text on hover; (i) opens the label->text legend. #}
+  <div class="mb-3 {{ '' if is_report_entry else 'd-none' }}" id="req-section"
+       {% if oob %}hx-swap-oob="true"{% endif %}>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <h6 class="mb-0 small fw-bold">{{ t('protocol.requirements_heading') }}</h6>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 d-inline-flex align-items-center justify-content-center lh-1"
+              title="{{ t('protocol.info_title') }}"
+              onclick="var m=document.getElementById('req-info-modal');m.classList.remove('d-none');m.classList.add('d-block')">
+        <i class="bi bi-info-circle"></i>
+      </button>
+      {# Edit the catalog itself (own copy per user + dataset). Deliberately not a submit button. #}
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 d-inline-flex align-items-center justify-content-center lh-1"
+              title="{{ t('protocol.catalog.edit_title') }}"
+              hx-get="/requirements" hx-target="#modal-container" hx-swap="innerHTML">
+        <i class="bi bi-pencil"></i>
+      </button>
+    </div>
+    {% if requirements %}
+      <div class="border rounded" style="max-height: 40vh; overflow-y: auto;">
+        <table class="table table-sm table-hover mb-0" id="req-table">
+          <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+            <tr>
+              <th class="ps-2" style="width: 2.5rem;">{{ t('protocol.col_req') }}</th>
+              <th class="text-center" style="width: 3rem;" title="{{ t('protocol.col_met') }}">
+                <i class="bi bi-check-lg text-success"></i>
+              </th>
+              <th class="text-center" style="width: 3rem;" title="{{ t('protocol.col_unmet') }}">
+                <i class="bi bi-exclamation-triangle text-danger"></i>
+              </th>
+              <th>{{ t('protocol.col_text') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in requirements %}
+              {% set st = requirement_status.get(r.label) %}
+              <tr>
+                <td class="ps-2 fw-semibold" title="{{ r.text }}">{{ r.label }}</td>
+                <td class="text-center">
+                  <input class="form-check-input" type="checkbox"
+                         name="req_met_{{ r.label }}" id="req_met_{{ r.label }}"
+                         data-req-pair="req_unmet_{{ r.label }}"
+                         aria-label="{{ r.label }} {{ t('protocol.col_met') }}"
+                         {{ 'checked' if st == 'met' }}>
+                </td>
+                <td class="text-center">
+                  <input class="form-check-input" type="checkbox"
+                         name="req_unmet_{{ r.label }}" id="req_unmet_{{ r.label }}"
+                         data-req-pair="req_met_{{ r.label }}"
+                         aria-label="{{ r.label }} {{ t('protocol.col_unmet') }}"
+                         {{ 'checked' if st == 'unmet' }}>
+                </td>
+                <td class="small text-truncate" style="max-width: 0;" title="{{ r.text }}">
+                  {{ r.text }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="form-text">{{ t('protocol.requirements_hint') }}</div>
+    {% else %}
+      <div class="text-muted small">{{ t('protocol.no_requirements') }}</div>
+    {% endif %}
+  </div>

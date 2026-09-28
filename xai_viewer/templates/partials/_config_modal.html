@@ -1,0 +1,330 @@
+{# Configuration dialog for a panel: model/accuracy/XAI + filters. Applied only on OK. #}
+{# data-panel-id: the usage tracking reads it so events inside the dialog carry the panel they
+   belong to, instead of only "config-modal" (tracking.py). #}
+<div class="modal d-block show" tabindex="-1" style="background: rgba(0,0,0,0.5);" id="config-modal"
+     data-panel-id="{{ panel.id }}">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content"
+          hx-post="/panel/{{ panel.id }}/config" hx-target="#workspace" hx-swap="outerHTML">
+
+      <div class="modal-header py-2">
+        <h5 class="modal-title">{{ t('config.title', pid=panel.id) }}</h5>
+        {% if not panel.configured %}
+          <button type="button" class="btn-close" aria-label="{{ t('common.cancel') }}"
+                  hx-post="/panel/{{ panel.id }}/delete" hx-target="#workspace" hx-swap="outerHTML"
+                  hx-on::after-request="document.getElementById('modal-container').innerHTML = ''"></button>
+        {% else %}
+          <button type="button" class="btn-close" aria-label="{{ t('common.cancel') }}"
+                  onclick="document.getElementById('modal-container').innerHTML = ''"></button>
+        {% endif %}
+      </div>
+
+      <div class="modal-body"
+           hx-post="/panel/{{ panel.id }}/filter-counts"
+           hx-trigger="change delay:250ms"
+           hx-include="closest form"
+           hx-swap="none">
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold" for="cfg-model">{{ t('config.model') }}</label>
+            <select class="form-select" name="model" id="cfg-model">
+              {% for key, label in model_labels.items() %}
+                <option value="{{ key }}" {{ 'selected' if key == panel.model }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold" for="cfg-level">{{ t('config.level') }}</label>
+            <select class="form-select" name="level" id="cfg-level">
+              {% for key, label in level_labels.items() %}
+                <option value="{{ key }}" {{ 'selected' if key == panel.level }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold" for="cfg-xai">{{ t('config.display') }}</label>
+            <select class="form-select" name="xai_method" id="cfg-xai">
+              {% for key, label in xai_labels.items() %}
+                <option value="{{ key }}"
+                        {{ 'selected' if key == panel.xai_method and panel.mode != 'modelcard' }}>{{ label }}</option>
+              {% endfor %}
+              {# Explicit empty value: the availability island locates the separator by it. #}
+              <option value="" disabled>──────────</option>
+              {# Mode, not a rendering – the route maps this onto panel["mode"] (see MODELCARD_OPTION). #}
+              <option value="{{ modelcard_option }}"
+                      {{ 'selected' if panel.mode == 'modelcard' }}>{{ t('config.modelcard') }}</option>
+            </select>
+            <div class="form-text" id="cfg-xai-hint"></div>
+          </div>
+        </div>
+
+        <hr>
+
+        {# ── Image mode: base image source + filters ── #}
+        {# Initial visibility comes from the server (no flash before the island runs); #}
+        {# the island takes over on every change of the display dropdown. #}
+        <fieldset id="images-section" class="{{ 'd-none' if panel.mode == 'modelcard' }}"
+                  {{ 'disabled' if panel.mode == 'modelcard' }}>
+        <div class="row g-3 mb-2">
+          <div class="col-12">
+            <label class="form-label fw-bold" for="cfg-source">
+              {{ t('config.source') }}
+              <i class="bi bi-info-circle text-muted" role="img" tabindex="0"
+                 title="{{ t('config.source_info_followers') if source_has_followers else t('config.source_info') }}"></i>
+            </label>
+            <select class="form-select" name="image_source" id="cfg-source"
+                    {{ 'disabled' if source_has_followers }}>
+              <option value="filter" {{ 'selected' if image_source.type == 'filter' }}>{{ t('config.source_own') }}</option>
+              {% for s in source_panels %}
+                <option value="panel:{{ s.id }}"
+                        {{ 'selected' if image_source.type == 'panel' and image_source.id == s.id }}>
+                  {{ t('config.source_panel', pid=s.id, descr=s.descr) }}
+                </option>
+              {% endfor %}
+              {% if collections %}
+                <option disabled>──────────</option>
+                {% for c in collections %}
+                  <option value="collection:{{ c.id }}"
+                          {{ 'selected' if image_source.type == 'collection' and image_source.id == c.id }}>
+                    {{ t('config.source_collection', title=c.title, count=c.count) }}
+                  </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+        </div>
+
+        <fieldset id="filter-section">
+        <h6><i class="bi bi-funnel"></i> {{ t('config.filter_heading') }}
+          <span class="text-muted small">{{ t('config.filter_hint') }}</span>
+          <span class="text-muted small fst-italic d-none" id="filter-disabled-hint">{{ t('config.filter_inactive') }}</span>
+        </h6>
+
+        <div class="row g-3 mb-2">
+          <div class="col-12">
+            <div class="fw-bold mb-1">{{ classification_filter.label }}</div>
+            {# The three options side by side – they are mutually exclusive and short. #}
+            {% for value, label in classification_filter.options.items() %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="{{ classification_filter.key }}"
+                       value="{{ value }}" id="cls-{{ value or 'alle' }}"
+                       {{ 'checked' if value == panel.filters.get(classification_filter.key, '') }}>
+                <label class="form-check-label" for="cls-{{ value or 'alle' }}">
+                  {{ label }} <span class="text-muted small" id="cnt-cls-{{ value or 'alle' }}">({{ filter_counts.classification.get(value, 0) }})</span>
+                </label>
+              </div>
+            {% endfor %}
+
+            {# Confidence range of the predicted class. Own on/off flag: "0–100 %" is not the same #}
+            {# as "inactive" (it would drop images without a prediction). #}
+            {% set conf = panel.filters.get(confidence_filter.key, [confidence_filter.min, confidence_filter.max]) %}
+            {% set conf_active = panel.filters.get(confidence_filter.active_key, false) %}
+            <div class="d-flex align-items-center flex-wrap gap-2 mt-2">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="cfg-conf-active"
+                       name="{{ confidence_filter.active_key }}" value="1" {{ 'checked' if conf_active }}>
+                <label class="form-check-label" for="cfg-conf-active">{{ confidence_filter.enable_label }}</label>
+              </div>
+              <div class="input-group input-group-sm w-auto">
+                <span class="input-group-text">{{ confidence_filter.min_label }}</span>
+                <input type="number" class="form-control cfg-conf-input" name="{{ confidence_filter.key }}_min"
+                       style="max-width: 5.5rem"
+                       min="{{ confidence_filter.min }}" max="{{ confidence_filter.max }}"
+                       step="{{ confidence_filter.step }}" value="{{ conf[0] }}" {{ 'disabled' if not conf_active }}>
+                <span class="input-group-text">%</span>
+                <span class="input-group-text">{{ confidence_filter.max_label }}</span>
+                <input type="number" class="form-control cfg-conf-input" name="{{ confidence_filter.key }}_max"
+                       style="max-width: 5.5rem"
+                       min="{{ confidence_filter.min }}" max="{{ confidence_filter.max }}"
+                       step="{{ confidence_filter.step }}" value="{{ conf[1] }}" {{ 'disabled' if not conf_active }}>
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+            <div class="form-text">{{ confidence_filter.hint }}</div>
+
+            <div class="form-text">{{ t('config.classification_note') }}</div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          {% for key, spec in filter_categories.items() %}
+            <div class="col-md-3">
+              <div class="fw-bold mb-1">{{ spec.label }}</div>
+              {% for value, label in spec.options.items() %}
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="filter_{{ key }}"
+                         value="{{ value }}" id="f-{{ key }}-{{ value }}"
+                         {{ 'checked' if value in panel.filters.get(key, []) }}>
+                  <label class="form-check-label" for="f-{{ key }}-{{ value }}">
+                    {{ label }} <span class="text-muted small" id="cnt-{{ key }}-{{ value }}">({{ filter_counts.categories[key].get(value, 0) }})</span>
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="row g-3 mt-1">
+          {% for key, spec in distance_filters.items() %}
+            {% set current = panel.filters.get(key, [spec.min, spec.max]) %}
+            <div class="col-md-6">
+              <div class="fw-bold mb-1">{{ spec.label }}</div>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">{{ t('config.from') }}</span>
+                <input type="number" class="form-control" name="{{ key }}_min"
+                       min="{{ spec.min }}" max="{{ spec.max }}" step="0.1" value="{{ current[0] }}">
+                <span class="input-group-text">{{ t('config.to') }}</span>
+                <input type="number" class="form-control" name="{{ key }}_max"
+                       min="{{ spec.min }}" max="{{ spec.max }}" step="0.1" value="{{ current[1] }}">
+                <span class="input-group-text">{{ spec.unit }}</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        </fieldset>
+        </fieldset>
+
+        {# ── Modelcard mode: exactly ONE category option restricts the confusion matrix. #}
+        {# Radios instead of checkboxes (Q1a); no base image source and no classification #}
+        {# filter here – the latter would degenerate the matrix (its diagonal would be 0). #}
+        <fieldset id="modelcard-section" class="{{ '' if panel.mode == 'modelcard' else 'd-none' }}"
+                  {{ '' if panel.mode == 'modelcard' else 'disabled' }}>
+          <h6><i class="bi bi-clipboard-data"></i> {{ t('config.modelcard_heading') }}
+            <span class="text-muted small">{{ t('config.modelcard_hint') }}</span>
+          </h6>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="modelcard_filter" value=""
+                   id="mc-all" {{ 'checked' if not modelcard_selection }}>
+            <label class="form-check-label" for="mc-all">
+              {{ t('config.modelcard_all') }}
+              <span class="text-muted small" id="acc-all">({{ modelcard_accuracy.all | accuracy_pct }})</span>
+            </label>
+          </div>
+          <div class="row g-3">
+            {% for key, spec in filter_categories.items() %}
+              <div class="col-md-3">
+                <div class="fw-bold mb-1">{{ spec.label }}</div>
+                {% for value, label in spec.options.items() %}
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="modelcard_filter"
+                           value="{{ key }}:{{ value }}" id="mc-{{ key }}-{{ value }}"
+                           {{ 'checked' if modelcard_selection == (key, value) }}>
+                    <label class="form-check-label" for="mc-{{ key }}-{{ value }}">
+                      {{ label }} <span class="text-muted small" id="acc-{{ key }}-{{ value }}">({{ modelcard_accuracy.categories[key].get(value) | accuracy_pct }})</span>
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="modal-footer py-2">
+        {% if not panel.configured %}
+          <button type="button" class="btn btn-secondary"
+                  hx-post="/panel/{{ panel.id }}/delete" hx-target="#workspace" hx-swap="outerHTML"
+                  hx-on::after-request="document.getElementById('modal-container').innerHTML = ''">
+            {{ t('common.cancel') }}
+          </button>
+        {% else %}
+          <button type="button" class="btn btn-secondary"
+                  onclick="document.getElementById('modal-container').innerHTML = ''">{{ t('common.cancel') }}</button>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">{{ t('config.apply') }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script id="data-xai-availability" type="application/json">{{ xai_availability | tojson }}</script>
+<script>
+  // NB: no declarations in global scope – this block is re-inserted on every dialog open
+  // (HTMX innerHTML swap), and a repeated `const` would throw a SyntaxError that kills the
+  // whole block. Everything stays inside IIFEs.
+
+  // Hide XAI methods incompatible with the selected model: the options are removed from the
+  // dropdown (the `hidden` attribute on <option> is ignored by some native select pickers, e.g.
+  // iOS Safari) and re-inserted before the separator, in their original order, when the model
+  // changes. "original" and the modelcard option (a mode, not a rendering) are always offered.
+  (function () {
+    const modelcardOption = {{ modelcard_option | tojson }};
+    const availability = JSON.parse(document.getElementById("data-xai-availability").textContent);
+    const modelSelect = document.getElementById("cfg-model");
+    const xaiSelect = document.getElementById("cfg-xai");
+    const hint = document.getElementById("cfg-xai-hint");
+    const allOptions = Array.from(xaiSelect.options);
+    const separator = allOptions.find(function (opt) { return opt.value === ""; });
+    const methodOptions = allOptions.filter(function (opt) {
+      return opt.value !== "original" && opt.value !== "" && opt.value !== modelcardOption;
+    });
+
+    function update() {
+      const methods = availability[modelSelect.value] || [];
+      let switched = false;
+      for (const opt of methodOptions) {
+        if (methods.includes(opt.value)) {
+          xaiSelect.insertBefore(opt, separator);
+          continue;
+        }
+        if (xaiSelect.value === opt.value) switched = true;
+        // A detached option keeps its selectedness and would grab the selection on re-insert.
+        opt.selected = false;
+        opt.remove();
+      }
+      if (switched) xaiSelect.value = "original";
+      hint.textContent = switched ? {{ t('config.xai_reset_hint') | tojson }} : "";
+    }
+
+    modelSelect.addEventListener("change", update);
+    update();
+  })();
+
+  // Display mode: images (source + filters) vs. modelcard (single-choice category).
+  // Disabled fieldset → not submitted, so the hidden section cannot clobber stored state.
+  (function () {
+    const modelcardOption = {{ modelcard_option | tojson }};
+    const xaiSelect = document.getElementById("cfg-xai");
+    const imagesSection = document.getElementById("images-section");
+    const cardSection = document.getElementById("modelcard-section");
+    function syncMode() {
+      const isCard = xaiSelect.value === modelcardOption;
+      imagesSection.classList.toggle("d-none", isCard);
+      imagesSection.disabled = isCard;
+      cardSection.classList.toggle("d-none", !isCard);
+      cardSection.disabled = !isCard;
+    }
+    xaiSelect.addEventListener("change", syncMode);
+    syncMode();
+  })();
+
+  // Confidence range: greyed out (and therefore not submitted) while the checkbox is off, so an
+  // inactive filter cannot smuggle stale bounds into the request. The change event bubbles to the
+  // modal body, which refreshes the faceted counts.
+  (function () {
+    const toggle = document.getElementById("cfg-conf-active");
+    const inputs = document.querySelectorAll(".cfg-conf-input");
+    function sync() {
+      inputs.forEach(function (el) { el.disabled = !toggle.checked; });
+    }
+    toggle.addEventListener("change", sync);
+    sync();
+  })();
+
+  // Disable the filter section when the image set comes from a foreign source – another panel
+  // (Q2a: follower drops its own filter entirely) or a collection (a fixed id snapshot, filters
+  // do not apply). Disabled fieldset → inputs greyed out + not submitted.
+  (function () {
+    const sourceSelect = document.getElementById("cfg-source");
+    const fieldset = document.getElementById("filter-section");
+    const hint = document.getElementById("filter-disabled-hint");
+    function sync() {
+      const foreign = sourceSelect.value.startsWith("panel:")
+                   || sourceSelect.value.startsWith("collection:");
+      fieldset.disabled = foreign;
+      hint.classList.toggle("d-none", !foreign);
+    }
+    sourceSelect.addEventListener("change", sync);
+    sync();
+  })();
+</script>

@@ -1,0 +1,128 @@
+{# Model overview: metadata block + confusion matrix + accuracy for this panel's #}
+{# model/level. Deliberately colour-free: the diagonal (= correct) is marked by position and #}
+{# weight, not by red/green (accessible for red-green colour blindness). #}
+{# The metadata VALUES are all "N/A" for now – no source yet, see _model_metadata(). #}
+<div class="p-1">
+  <div class="d-flex align-items-baseline gap-2 mb-1">
+    <span class="fs-4 fw-semibold" title="{{ t('modelcard.accuracy_title') }}">
+      {{ p.modelcard.accuracy | accuracy_pct }}</span>
+    <span class="text-muted small">{{ t('modelcard.accuracy') }}</span>
+    <span class="text-muted small ms-auto">
+      {{ nt(p.modelcard.total, 'gallery.image_count') }} {{ t('modelcard.evaluated') }}
+    </span>
+  </div>
+  <div class="small text-muted mb-2" title="{{ t('config.modelcard_heading') }}">
+    <i class="bi bi-funnel"></i> {{ p.modelcard_scope }}
+  </div>
+
+  {# Foldable, collapsed by default. <details> keeps this build-free – no island, no state to sync. #}
+  <details class="mb-2">
+    <summary class="small text-muted">{{ t('modelcard.meta_heading') }}</summary>
+    <div class="modelcard-meta small mt-1">
+      {% for field in p.modelcard_meta %}
+        <div>
+          <span class="text-muted mc-meta-label">{{ field.label }}</span>
+          <span class="mc-meta-value">{{ field.value }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </details>
+
+  {# Tick cells → build a collection (snapshot of the corresponding images). The whole matrix #}
+  {# plus the create controls form ONE form so the ticked cells post together. #}
+  <form id="mc-form-{{ p.id }}" hx-post="/collection/from-matrix"
+        hx-target="#workspace" hx-swap="outerHTML">
+    <input type="hidden" name="panel_id" value="{{ p.id }}">
+    {# Only the data cells are bordered (see style.css) → the 2x2 grid reads as the matrix, #}
+    {# the surrounding label/header cells stay borderless. #}
+    <table class="table table-sm mb-2 mc-matrix">
+      <thead>
+        <tr>
+          {# Empty corner stays borderless; "Vorhersage" sits in its own grey-framed cell #}
+          {# spanning (and aligned with) the data columns. #}
+          <td class="border-0"></td>
+          <th colspan="{{ p.modelcard.classes | length }}"
+              class="text-center small fw-normal text-muted mc-pred-head">{{ t('modelcard.predicted') }}</th>
+        </tr>
+        <tr>
+          <th class="small fw-normal text-muted">{{ t('modelcard.actual') }}</th>
+          {% for c in p.modelcard.classes %}
+            {# Column sum = images predicted as this class (≙ = "corresponds to"). #}
+            <th class="text-center small">
+              {{ p.modelcard.class_labels[c] }}
+              <div class="fw-normal text-muted">
+                ({{ p.modelcard.col_totals[c] }} ≙ {{ p.modelcard.col_totals[c] | share_pct(p.modelcard.total) }})
+              </div>
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for tc in p.modelcard.classes %}
+          <tr>
+            {# Row sum = images whose true class is this one. #}
+            <th class="small">
+              {{ p.modelcard.class_labels[tc] }}
+              <div class="fw-normal text-muted">
+                ({{ p.modelcard.row_totals[tc] }} ≙ {{ p.modelcard.row_totals[tc] | share_pct(p.modelcard.total) }})
+              </div>
+            </th>
+            {% for pc in p.modelcard.classes %}
+              {# The actual data cells (mc-data-cell) get a darker/thicker border so the matrix #}
+              {# stands out from the labelling cells. #}
+              <td class="text-center mc-data-cell {{ 'table-active fw-semibold' if tc == pc }}">
+                {# Every cell gets a checkbox for a consistent look; empty cells (no images) #}
+                {# render it disabled/greyed – not selectable (Q4a). #}
+                <input class="form-check-input mc-cell float-end" type="checkbox"
+                       name="cell" value="{{ tc }}:{{ pc }}"
+                       {{ 'disabled' if not p.modelcard.matrix[tc][pc] }}
+                       title="{{ t('collection.cell_empty_title') if not p.modelcard.matrix[tc][pc] else t('collection.cell_title') }}">
+                {{ p.modelcard.matrix[tc][pc] }}
+                <div class="fw-normal text-muted small">{{ p.modelcard.matrix[tc][pc] | share_pct(p.modelcard.total) }}</div>
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {# Create controls appear only once at least one cell is ticked (island toggles d-none). #}
+    <div id="mc-controls-{{ p.id }}" class="d-none">
+      <div class="small text-muted mb-1">{{ t('collection.create_heading') }}</div>
+      <div class="row g-2 align-items-end">
+        <div class="col">
+          <input type="text" class="form-control form-control-sm" id="mc-title-{{ p.id }}"
+                 name="title" maxlength="100" placeholder="{{ t('collection.title_placeholder') }}">
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="bi bi-collection"></i> {{ t('collection.create') }}
+          </button>
+        </div>
+      </div>
+      <div class="form-check mt-1">
+        <input class="form-check-input" type="checkbox" name="open_new_panel"
+               id="mc-open-{{ p.id }}" value="1" checked>
+        <label class="form-check-label small text-muted" for="mc-open-{{ p.id }}">
+          {{ t('collection.open_new_panel') }}
+        </label>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# Island: show the create controls only while at least one cell is ticked. IIFE + per-panel #}
+{# ids → no global scope, safe when several modelcard panels render side by side. #}
+<script>
+  (function () {
+    const form = document.getElementById("mc-form-{{ p.id }}");
+    if (!form) return;
+    const controls = document.getElementById("mc-controls-{{ p.id }}");
+    function sync() {
+      const any = form.querySelectorAll("input.mc-cell:checked").length > 0;
+      controls.classList.toggle("d-none", !any);
+    }
+    form.addEventListener("change", sync);
+    sync();
+  })();
+</script>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('login.title') }}{% endblock %}
+
+{# Two visually separate entrances (feedback 2026-09-01): the password-less guest login on top,
+   the account login below a divider. One shared card, but two independent forms — a hidden
+   `mode` field tells the route which one was submitted, so an error is shown in the section it
+   belongs to instead of next to a field the visitor never filled in. #}
+
+{% set form = form | default('guest') %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-sm-10 col-md-7 col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="card-title mb-1">
+          <i class="bi bi-train-front me-2"></i>{{ product }}
+        </h3>
+        <p class="text-muted small mb-3">{{ t('login.title') }}</p>
+
+        {# ── guest ──────────────────────────────────────────────────────────── #}
+        <section class="login-section">
+          <h6 class="fw-semibold mb-1">
+            <i class="bi bi-person me-1"></i>{{ t('login.guest_heading') }}
+          </h6>
+          <p class="text-muted small mb-1">{{ t('login.guest_lead') }}</p>
+          {# Retention note pulled up into the description (feedback 2026-09-07); stays conditional:
+             the {h}-hour deletion is DEMO-only, an internal instance keeps guest content. #}
+          <p class="text-muted login-fineprint mb-3">
+            <i class="bi bi-info-circle"></i>
+            {{ t('login.guest_ttl', h=guest_ttl_hours) if demo else t('login.guest_local') }}
+          </p>
+
+          {% if error and form == 'guest' %}
+            <div class="alert alert-danger py-2 small" role="alert">
+              <i class="bi bi-exclamation-triangle"></i> {{ error }}
+            </div>
+          {% endif %}
+
+          <form method="post">
+            <input type="hidden" name="mode" value="guest">
+            <div class="mb-3">
+              <label for="guest-name" class="form-label">{{ t('login.guest_name') }}</label>
+              <input type="text" class="form-control" id="guest-name" name="username"
+                     value="{{ username if form == 'guest' else '' }}"
+                     autofocus required placeholder="{{ t('login.guest_name_ph') }}">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-box-arrow-in-right me-1"></i> {{ t('login.guest_submit') }}
+            </button>
+          </form>
+
+        </section>
+
+        <div class="login-sep"><span>{{ t('login.divider') }}</span></div>
+
+        {# ── registered accounts ────────────────────────────────────────────── #}
+        {# Collapsed by default (native <details>, no JS): the guest entrance is what most
+           visitors need, and a folded-away form cannot be mistaken for the one to fill in.
+           Opened when the visitor came back from a failed account login, so the error and the
+           fields it belongs to are visible without a second click. #}
+        <details class="login-account" {{ 'open' if form == 'account' else '' }}>
+          <summary class="login-account-summary fw-semibold">
+            <i class="bi bi-shield-lock me-1"></i>{{ t('login.account_heading') }}
+          </summary>
+          <div class="pt-3">
+
+            {% if error and form == 'account' %}
+              <div class="alert alert-danger py-2 small" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> {{ error }}
+              </div>
+            {% endif %}
+
+            <form method="post">
+              <input type="hidden" name="mode" value="account">
+              <div class="mb-3">
+                <label for="username" class="form-label">{{ t('login.username') }}</label>
+                <input type="text" class="form-control" id="username" name="username"
+                       value="{{ username if form == 'account' else '' }}"
+                       required placeholder="{{ t('login.username_ph') }}">
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">{{ t('login.password') }}</label>
+                <input type="password" class="form-control" id="password" name="password"
+                       required placeholder="{{ t('login.password_ph') }}">
+              </div>
+              <button type="submit" class="btn btn-outline-primary w-100">
+                <i class="bi bi-box-arrow-in-right me-1"></i> {{ t('login.submit') }}
+              </button>
+            </form>
+          </div>
+        </details>
+        {# Persistent under the account label, visible even while the section is collapsed:
+           accounts are not self-service, so the way to get one must not hide behind a click.
+           Same target as the footer contact (legal file of this instance); none configured → hidden. #}
+        {% if legal.contact_url %}
+          <p class="text-muted small mt-2 mb-0">
+            {{ t('login.request_prompt') }}
+            <a href="{{ legal.contact_url }}" target="_blank" rel="noopener">{{ t('login.request_link') }}</a>
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

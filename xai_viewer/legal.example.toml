@@ -1,0 +1,119 @@
+# Legal texts of YOUR instance: imprint, the operator part of the privacy policy, contact link.
+#
+# Copy to `legal.toml` (beside app.py) and fill in — or point XAI_LEGAL_FILE / `[paths]
+# legal_file` in config.toml at it. Whoever runs a publicly reachable instance is responsible for
+# these texts; the application cannot know them. Without the file, /imprint and /privacy say that
+# nothing is configured and the contact links are hidden.
+#
+# Conventions:
+# - One top-level table per UI language (`de`, `en`). A missing language falls back to `de`.
+# - Values in [square brackets] are PLACEHOLDERS. While one is left in a section, that page shows
+#   a "draft" notice — so a half-filled page never looks final.
+# - Every key is optional; what is missing is simply not shown.
+# - The generic part of the privacy policy (session cookie, stored content, guest retention, no
+#   third-party content, usage tracking) describes what the application does and is rendered
+#   from the i18n catalogues. Check that it matches how you run the instance.
+#
+# The example text is written for a German public research institution (Art. 6(1)(e) GDPR).
+# It is a starting point, not legal advice.
+
+[de]
+# Footer "Kontakt" and the login's "Login anfragen" link. Omit to hide both.
+contact_url = "https://[ihre-projektseite.example.org]"
+
+[de.imprint]
+lead = "Dieses Angebot ist ein Forschungsdemonstrator der [Einrichtung]."
+# Optional link behind the lead, e.g. to the institution's own imprint.
+reference_label = "Impressum der [Einrichtung]"
+reference_url = "https://[einrichtung.example.org]/impressum"
+note = "Inhaltlich verantwortlich ist die genannte Organisationseinheit."
+
+# Any number of blocks, shown in this order as "heading: lines".
+[[de.imprint.blocks]]
+heading = "Anbieter"
+lines = [
+  "[Name der Einrichtung]",
+  "[Rechtsform]",
+  "[Straße Nr.]",
+  "[PLZ Ort]",
+]
+
+[[de.imprint.blocks]]
+heading = "Gesetzliche Vertretung"
+lines = ["[Vertreten durch …]"]
+
+[[de.imprint.blocks]]
+heading = "Verantwortliche Organisationseinheit"
+lines = ["[Fakultät / Institut / Professur]"]
+
+[[de.imprint.blocks]]
+heading = "Kontakt"
+lines = ["E-Mail: [kontakt@example.org]"]
+
+[[de.imprint.blocks]]
+heading = "Aufsichtsbehörde"
+lines = ["[Name und Anschrift der Aufsichtsbehörde]"]
+
+[[de.imprint.blocks]]
+heading = "Umsatzsteuer-Identifikationsnummer"
+lines = ["USt-IdNr. [DE …]"]
+
+[de.privacy]
+lead = "Diese Erklärung gilt für diesen Demonstrator. Im Übrigen gilt die Datenschutzerklärung der [Einrichtung]."
+reference_label = "Datenschutzerklärung der [Einrichtung]"
+reference_url = "https://[einrichtung.example.org]/datenschutz"
+controller_text = "Verantwortlich ist die im Impressum genannte Organisationseinheit. Die Kontaktangaben der oder des Datenschutzbeauftragten finden Sie hier:"
+# Keep label and URL apart: a URL inside prose renders as text, not as a link.
+dpo_label = "Datenschutzbeauftragte(r) der [Einrichtung]"
+dpo_url = "https://[einrichtung.example.org]/datenschutz"
+legal_basis_text = "Die Verarbeitung erfolgt zur Wahrnehmung einer Aufgabe im öffentlichen Interesse (Art. 6 Abs. 1 lit. e DSGVO in Verbindung mit [Landesgesetz]) im Rahmen der Forschung."
+rights_text = "Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie ein Beschwerderecht bei [zuständige Aufsichtsbehörde für den Datenschutz]."
+
+
+[en]
+contact_url = "https://[your-project-page.example.org]"
+
+[en.imprint]
+lead = "This service is a research demonstrator of [institution]."
+reference_label = "Legal notice of [institution]"
+reference_url = "https://[institution.example.org]/legal-notice"
+note = "The organisational unit named above is responsible for the content."
+
+[[en.imprint.blocks]]
+heading = "Provider"
+lines = [
+  "[Name of the institution]",
+  "[Legal form]",
+  "[Street no.]",
+  "[Postcode city, country]",
+]
+
+[[en.imprint.blocks]]
+heading = "Legal representation"
+lines = ["[Represented by …]"]
+
+[[en.imprint.blocks]]
+heading = "Responsible organisational unit"
+lines = ["[Faculty / institute / chair]"]
+
+[[en.imprint.blocks]]
+heading = "Contact"
+lines = ["E-mail: [contact@example.org]"]
+
+[[en.imprint.blocks]]
+heading = "Supervisory authority"
+lines = ["[Name and address of the supervisory authority]"]
+
+[[en.imprint.blocks]]
+heading = "VAT identification number"
+lines = ["VAT ID [DE …]"]
+
+[en.privacy]
+lead = "This policy covers this demonstrator. Beyond it, the privacy policy of [institution] applies."
+reference_label = "Privacy policy of [institution]"
+reference_url = "https://[institution.example.org]/privacy"
+controller_text = "The controller is the organisational unit named in the legal notice. The contact details of the data protection officer can be found here:"
+dpo_label = "Data protection officer of [institution]"
+dpo_url = "https://[institution.example.org]/privacy"
+legal_basis_text = "Processing is carried out for the performance of a task in the public interest (Art. 6(1)(e) GDPR in conjunction with [state law]) in the context of research."
+rights_text = "You have the right to information, rectification, erasure and restriction of processing, as well as the right to lodge a complaint with [competent data protection authority]."

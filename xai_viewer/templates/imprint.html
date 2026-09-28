@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('imprint.title') }}{% endblock %}
+
+{# Legal notice. The operator's details (lead, address blocks, note) come from the legal file of
+   this instance (``imprint``, see legal.py / legal.example.toml); only the headline and the
+   liability disclaimer about the application's output are generic and live in the catalogues.
+   The address blocks are lists of lines, because that is what an address is. #}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+    <h1 class="h3 mb-3">{{ t('imprint.title') }}</h1>
+
+    {% if not imprint %}
+      <div class="alert alert-secondary py-2 small" role="alert">
+        <i class="bi bi-info-circle"></i> {{ t('legal.not_configured') }}
+      </div>
+    {% else %}
+      {# Shown exactly while a [placeholder] is left in this section. #}
+      {% if draft %}
+        <div class="alert alert-warning py-2 small" role="alert">
+          <i class="bi bi-exclamation-triangle"></i> {{ t('legal.draft_notice') }}
+        </div>
+      {% endif %}
+
+      {% if imprint.lead or imprint.reference_url %}
+        <p class="text-muted">
+          {{ imprint.lead }}
+          {% if imprint.reference_url %}
+            <a href="{{ imprint.reference_url }}" target="_blank" rel="noopener">{{ imprint.reference_label or imprint.reference_url }}</a>
+          {% endif %}
+        </p>
+      {% endif %}
+
+      <dl class="row mb-4">
+        {% for block in imprint.blocks or [] %}
+          <dt class="col-sm-4 fw-semibold">{{ block.heading }}</dt>
+          <dd class="col-sm-8">
+            {% for line in block.lines or [] %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+          </dd>
+        {% endfor %}
+      </dl>
+
+      {% if imprint.note %}<p class="small text-muted">{{ imprint.note }}</p>{% endif %}
+    {% endif %}
+
+    <h2 class="h6 mt-4">{{ t('imprint.liability') }}</h2>
+    <p class="small text-muted">{{ t('imprint.liability_text') }}</p>
+  </div>
+</div>
+{% endblock %}

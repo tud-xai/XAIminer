@@ -1,0 +1,32 @@
+{# Requirements legend (label -> text) as a small overlay, opened by the (i) button in the requirements section. The wrapper div always exists (even without a catalog) so it stays a stable target for out-of-band swaps after the catalog was edited. #}
+<div id="req-legend-wrap" {% if oob %}hx-swap-oob="true"{% endif %}>
+{% if requirements %}
+  {# Requirements legend, a small overlay toggled via the (i) button. Bootstrap's .modal is display:none, so showing it means d-block (not just removing d-none) — that was the earlier "(i) does nothing" bug. Not Bootstrap-managed → plain class toggle stays HTMX-swap-safe. #}
+  <div class="modal d-none" tabindex="-1" style="background: rgba(0,0,0,0.6); z-index: 1080;"
+       id="req-info-modal">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-info-circle"></i> {{ t('protocol.info_title') }}</h5>
+          <button type="button" class="btn-close" aria-label="{{ t('common.close') }}"
+                  onclick="var m=document.getElementById('req-info-modal');m.classList.add('d-none');m.classList.remove('d-block')"></button>
+        </div>
+        <div class="modal-body">
+          <dl class="mb-0">
+            {% for r in requirements %}
+              <dt>{{ r.label }}</dt>
+              <dd class="mb-2">{{ r.text }}</dd>
+            {% endfor %}
+          </dl>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary"
+                  onclick="var m=document.getElementById('req-info-modal');m.classList.add('d-none');m.classList.remove('d-block')">
+            {{ t('common.close') }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+</div>

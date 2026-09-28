@@ -1,0 +1,219 @@
+{# A single panel: header (configuration, actions) + gallery of filtered images. #}
+<div class="card panel-card" id="panel-{{ p.id }}">
+
+  <div class="card-header d-flex align-items-center gap-2 py-1 px-2">
+    <div class="d-flex align-items-center gap-2 me-auto" style="min-width: 0">
+      {# p.xai_label is already singular in the single-image view (see _render_workspace). #}
+      {% set display_label = t('config.modelcard') if p.is_modelcard else p.xai_label %}
+      <strong class="text-truncate">
+        P{{ p.id }} · {{ model_labels[p.model] }} · {{ level_labels[p.level] }} · {{ display_label }}
+      </strong>
+      {% include "partials/_source_badge.html" %}
+    </div>
+    {# No coupling control for a modelcard panel: nothing to scroll or step through (Q3a) #}
+    {% if not p.is_modelcard %}
+      <button type="button"
+              class="btn btn-sm {{ 'btn-primary' if p.linked else 'btn-outline-secondary' }}"
+              title="{{ t('panel.link.unlink_title') if p.linked else t('panel.link.link_title') }}"
+              hx-post="/panel/{{ p.id }}/link" hx-swap="none"
+              onclick="xaiToggleLink(this, {{ p.id }})">
+        <i class="bi bi-link-45deg"></i>
+      </button>
+    {% endif %}
+    <button type="button" class="btn btn-sm btn-outline-primary" title="{{ t('panel.config_title') }}"
+            hx-get="/panel/{{ p.id }}/config" hx-target="#modal-container" hx-swap="innerHTML">
+      <i class="bi bi-sliders"></i>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+            title="{{ t('workspace.panel_limit', max=max_panels) if panel_limit_reached else t('panel.duplicate') }}"
+            hx-post="/panel/{{ p.id }}/duplicate" hx-target="#workspace" hx-swap="outerHTML"
+            {% if panel_limit_reached %}disabled{% endif %}>
+      <i class="bi bi-copy"></i>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="{{ t('panel.hide') }}"
+            hx-post="/panel/{{ p.id }}/toggle" hx-target="#workspace" hx-swap="outerHTML">
+      <i class="bi bi-eye-slash"></i>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-danger" title="{{ t('panel.delete') }}"
+            hx-post="/panel/{{ p.id }}/delete" hx-target="#workspace" hx-swap="outerHTML"
+            hx-confirm="{{ t('panel.delete_confirm', pid=p.id) }}">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <div class="card-body p-2">
+    {% if not p.configured %}
+      {# Well-defined "config pending" state (panel.configured = False): panel exists, its config #}
+      {# dialog has not been applied yet. Reached right after "New panel" / a new project #}
+      {# when the auto-opened config dialog is dismissed (X / Cancel) without applying. The gallery #}
+      {# is deliberately not loaded until the first apply (see app.py _default_panel). #}
+      <div class="text-muted small p-3 text-center">
+        <i class="bi bi-sliders me-1"></i>{{ t('panel.config_pending') }}
+      </div>
+    {% elif p.is_modelcard %}
+      {# Model overview replaces gallery and single-image view entirely (Q3a) #}
+      {% include "partials/_modelcard.html" %}
+    {% elif p.view == 'single' and p.current %}
+      {# ── Single-image view: image fills the panel ── #}
+      {# data-single-controls: heights equalised across panels by the island in _workspace.html; #}
+      {# align-content-start keeps the extra space below the row instead of centring it. #}
+      <div class="d-flex align-items-center align-content-start flex-wrap gap-2 mb-2" data-single-controls>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="{{ t('single.back_to_gallery') }}"
+                hx-post="/panel/{{ p.id }}/gallery" hx-target="#workspace" hx-swap="outerHTML">
+          <i class="bi bi-grid-3x3-gap"></i>
+        </button>
+        <div class="btn-group btn-group-sm">
+          {# While the panel is linked these arrows step ALL coupled panels (like the sync #}
+          {# control) — the tooltip says so, so the wider effect is not a surprise. #}
+          <button type="button" class="btn btn-outline-primary"
+                  title="{{ t('single.prev_linked') if p.linked else t('single.prev') }}"
+                  hx-post="/panel/{{ p.id }}/step/prev" hx-target="#workspace" hx-swap="outerHTML">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <button type="button" class="btn btn-outline-primary"
+                  title="{{ t('single.next_linked') if p.linked else t('single.next') }}"
+                  hx-post="/panel/{{ p.id }}/step/next" hx-target="#workspace" hx-swap="outerHTML">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+        <span class="small text-muted">
+          {{ p.index + 1 }} / {{ p.total }}
+          {% if p.filter_summary %}<i class="bi bi-funnel-fill" title="{{ t('panel.filter_active', summary=p.filter_summary | join(', ')) }}"></i>{% endif %}
+        </span>
+        {% if p.current.crp_concepts %}
+          {# CRP: concept picker (by rank) + image-type select. The concept label is kept compact #}
+          {# ("Konzept {id} · {relevance} %", no redundant rank prefix) so both selects fit one row. #}
+          <select class="form-select form-select-sm w-auto" title="{{ t('crp.concept_select') }}"
+                  name="crp_rank" hx-post="/panel/{{ p.id }}/crp-select"
+                  hx-target="#workspace" hx-swap="outerHTML" hx-trigger="change">
+            {% for c in p.current.crp_concepts %}
+              <option value="{{ c.rank }}" {{ 'selected' if c.rank == p.current.crp_rank }}>
+                {{ t('crp.concept') }} {{ c.concept_id }} · {{ (c.relevance * 100) | round(1) }} %
+              </option>
+            {% endfor %}
+          </select>
+          <select class="form-select form-select-sm w-auto" title="{{ t('crp.view_select') }}"
+                  name="crp_view" hx-post="/panel/{{ p.id }}/crp-select"
+                  hx-target="#workspace" hx-swap="outerHTML" hx-trigger="change">
+            <option value="heatmap" {{ 'selected' if p.current.crp_view == 'heatmap' }}>{{ t('crp.heatmap') }}</option>
+            <option value="grid" {{ 'selected' if p.current.crp_view == 'grid' }}>{{ t('crp.grid') }}</option>
+          </select>
+        {% endif %}
+        {% if p.current.craft_chips %}
+          {# CRAFT concept picker: a custom Bootstrap dropdown (not a native <select>, which can't #}
+          {# colour its options on Safari/macOS). A colour swatch precedes EVERY entry so a coloured #}
+          {# region in the attribution map can be matched to its concept. The menu is an overlay → #}
+          {# no extra header row. Ordered by the image's activation; importance in the label. #}
+          {% set sel = p.current.craft_chips | selectattr('selected') | list | first %}
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-inline-flex align-items-center gap-1"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ t('craft.select') }}">
+              {% if sel %}{% if sel.color %}<span class="craft-swatch" style="background-color:{{ sel.color }}"></span>{% endif %}{{ t('craft.concept') }} {{ sel.concept_id }}{% else %}{{ t('craft.map') }}{% endif %}
+            </button>
+            <ul class="dropdown-menu">
+              <li>
+                <button type="button" class="dropdown-item {{ 'active' if p.current.craft_concept is none }}"
+                        hx-post="/panel/{{ p.id }}/craft-select" hx-vals='{"craft_concept": "map"}'
+                        hx-target="#workspace" hx-swap="outerHTML">{{ t('craft.map') }}</button>
+              </li>
+              {% for c in p.current.craft_chips %}
+                <li>
+                  <button type="button" class="dropdown-item d-flex align-items-center gap-2 {{ 'active' if c.selected }}"
+                          hx-post="/panel/{{ p.id }}/craft-select" hx-vals='{"craft_concept": "{{ c.concept_id }}"}'
+                          hx-target="#workspace" hx-swap="outerHTML">
+                    {% if c.color %}<span class="craft-swatch" style="background-color:{{ c.color }}"></span>{% endif %}
+                    <span><span title="{{ t('craft.concept_tip') }}">{{ t('craft.concept') }} {{ c.concept_id }}</span>{% if c.global_importance is not none %} · <span title="{{ t('craft.importance_tip') }}">{{ t('craft.importance') }} {{ (c.global_importance * 100) | round(1) }} %</span>{% endif %}{% if c.activation_share is not none %} · <span title="{{ t('craft.activation_tip') }} {{ c.activation_score }}">{{ t('craft.share') }} {{ (c.activation_share * 100) | round(1) }} %</span>{% endif %}</span>
+                  </button>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+        <span class="ms-auto badge {{ 'text-bg-success' if p.current.correct else 'text-bg-danger' }}">
+          {{ p.current.predicted_class }}
+          {% if p.current.confidence is not none %}{{ (p.current.confidence * 100) | round | int }}%{% endif %}
+        </span>
+      </div>
+      <figure class="panel-single-fig m-0"
+              title="{{ p.current.id }} – {{ t('common.true_label') }}: {{ p.current.true_class }}, {{ t('common.prediction_label') }}: {{ p.current.predicted_class }}">
+        <img src="{{ p.current.full_url }}" alt="{{ p.current.id }}"
+             class="{{ 'border-success' if p.current.correct else 'border-danger' }}">
+      </figure>
+      {% if p.preload_url %}
+        {# Warms the browser cache for the NEXT image of this panel's sequence while the current #}
+        {# one is looked at — stepping on then costs no download. fetchpriority=low so it never #}
+        {# competes with the visible image; a hidden <img> rather than <link rel=preload>, which #}
+        {# warns in the console when the resource is not used within seconds (here: much later). #}
+        <img class="panel-preload" src="{{ p.preload_url }}" alt="" aria-hidden="true"
+             fetchpriority="low" decoding="async">
+      {% endif %}
+      {# Confidences for all classes, predicted class highlighted #}
+      <div class="panel-conf mt-2">
+        {% for c in p.current.confidences %}
+          <div class="d-flex align-items-center gap-2 small mb-1">
+            <span class="text-nowrap panel-row-label">
+              {{ c.label }}
+            </span>
+            {# Deliberately unmarked rows: neither a green bar nor a bold class name on the #}
+            {# predicted class. Both were read as "correctly classified", which they never meant. #}
+            {# Correctness is the badge above the image, the prediction the descending order. #}
+            <div class="progress flex-grow-1" style="height: .6rem">
+              <div class="progress-bar bg-secondary"
+                   style="width: {{ (c.value * 100) | round | int }}%"></div>
+            </div>
+            <span class="text-muted text-end" style="min-width: 2.8rem">{{ (c.value * 100) | round | int }}%</span>
+          </div>
+        {% endfor %}
+      </div>
+      {# The true label comes first and in bold — it is what the panel is about, while the file #}
+      {# name is a mere identifier. Two rows, because sharing one truncated line let a long file #}
+      {# name eat the label; the name keeps the truncation and its full text in title=. The #}
+      {# captions share .panel-row-label with the confidence rows above, so both values start #}
+      {# exactly where the bars do. #}
+      <div class="small text-muted mt-1">
+        <div class="d-flex align-items-baseline gap-2 fw-semibold">
+          <span class="text-nowrap panel-row-label">{{ t('common.true_label') | capitalize }}:</span>
+          <span>
+            {{ p.current.true_class }}
+            {% if p.current.xai_missing %}
+              <span class="badge text-bg-warning" title="{{ t('panel.no_xai_title') }}">{{ t('panel.no_xai') }}</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="d-flex align-items-baseline gap-2">
+          <span class="text-nowrap panel-row-label">{{ t('common.file_label') }}:</span>
+          <span class="text-truncate" style="min-width: 0" title="{{ p.current.id }}">{{ p.current.id }}</span>
+        </div>
+      </div>
+    {% elif p.view == 'single' %}
+      <div class="text-muted small p-3">{{ t('panel.no_match') }}</div>
+    {% elif p.configured %}
+      {# ── Gallery view ── #}
+      <div class="small text-muted mb-1">
+        {{ nt(p.image_count, 'gallery.image_count') }}
+        {% if p.filter_summary %}<i class="bi bi-funnel-fill" title="{{ t('panel.filter_active', summary=p.filter_summary | join(', ')) }}"></i>{% endif %}
+      </div>
+      <div class="panel-gallery" data-panel-id="{{ p.id }}" data-linked="{{ '1' if p.linked else '0' }}">
+        {% for img in p.images %}
+          <figure class="panel-thumb m-0" style="cursor: pointer"
+                  hx-post="/panel/{{ p.id }}/open/{{ loop.index0 }}" hx-target="#workspace" hx-swap="outerHTML"
+                  title="{{ img.id }} – {{ t('common.true_label') }}: {{ img.true_class }}, {{ t('common.prediction_label') }}: {{ img.predicted_class }}{{ '\n' }}{{ t('common.confidences_label') }}: {% for c in img.confidences %}{{ c.label }} {{ (c.value * 100) | round | int }}%{% if not loop.last %}, {% endif %}{% endfor %}{{ '\n' }}{{ t('gallery.click_fullscreen') }}">
+            <img src="{{ img.url }}" alt="{{ img.id }}" loading="lazy"
+                 class="{{ 'border-success' if img.correct else 'border-danger' }}">
+            <figcaption class="small text-truncate">
+              <span class="badge {{ 'text-bg-success' if img.correct else 'text-bg-danger' }}">
+                {{ img.predicted_class }}
+                {% if img.confidence is not none %}{{ (img.confidence * 100) | round | int }}%{% endif %}
+              </span>
+              {% if img.xai_missing %}
+                <span class="badge text-bg-warning" title="{{ t('panel.no_xai_title') }}">{{ t('panel.no_xai') }}</span>
+              {% endif %}
+            </figcaption>
+          </figure>
+        {% else %}
+          <div class="text-muted small p-3">{{ t('panel.no_match') }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>

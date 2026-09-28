@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ doc_title }}{% endblock %}
+
+{# A guide from docs/*.md, rendered by docs_render.py (trusted, checked-in content → | safe); German only for now, other UI languages get a notice. #}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10 col-xl-9 docs-content">
+    {% if get_lang() != 'de' %}
+      <div class="alert alert-info small">{{ t('docs.german_only') }}</div>
+    {% endif %}
+    {{ doc_html | safe }}
+  </div>
+</div>
+<script>
+  // Island: the browser jumps to #anchor before the screenshots above it have loaded; they then
+  // push the heading out of view. Jump again once everything is in place.
+  (function () {
+    if (!location.hash) return;
+    window.addEventListener("load", function () {
+      var el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (el) el.scrollIntoView();
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('setup_error.page_title') }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-sm-10 col-md-7 col-lg-6">
+    <div class="card border-warning shadow-sm">
+      <div class="card-header bg-warning text-dark fw-bold">
+        <i class="bi bi-exclamation-triangle me-2"></i>{{ t('setup_error.heading') }}
+      </div>
+      <div class="card-body p-4">
+        <p class="mb-3">{{ t('setup_error.body', dataset=dataset) | safe }}</p>
+
+        <p class="fw-semibold mb-1">{{ t('setup_error.missing_label') }}</p>
+        <pre class="bg-light border rounded p-2 small">{{ missing }}</pre>
+
+        <p class="fw-semibold mb-1 mt-3">{{ t('setup_error.solution_label') | safe }}</p>
+        <pre class="bg-dark text-light rounded p-3">{{ t('setup_error.command', dataset=dataset) }}</pre>
+
+        <p class="text-muted small mt-3 mb-0">
+          <i class="bi bi-info-circle"></i>
+          {{ t('setup_error.reload_hint') }}
+          <a href="{{ url_for('docs_page', page='setup') }}#5-metadaten-erzeugen-metadatajson"
+             target="_blank" rel="noopener">{{ t('setup_error.readme_link') }}</a>.
+        </p>
+      </div>
+      <div class="card-footer d-flex gap-2">
+        <a href="{{ url_for('workspace') }}" class="btn btn-sm btn-primary">
+          <i class="bi bi-arrow-clockwise me-1"></i>{{ t('setup_error.retry') }}
+        </a>
+        <a href="{{ url_for('project_select') }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-folder2-open me-1"></i>{{ t('setup_error.choose_dataset') }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

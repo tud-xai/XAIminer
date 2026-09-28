@@ -1,0 +1,16 @@
+{# Page footer. Deliberately BELOW the fold: the enclosing .page-fold container is at least one viewport high, so the footer is only visible after scrolling and never distracts. Included by base.html and by every page that brings its own skeleton. NOT part of the audit report (its template is standalone and print-oriented). #}
+<footer class="border-top bg-body-tertiary py-3 mt-0">
+  <div class="container-fluid d-flex flex-wrap align-items-center gap-3 small text-muted">
+    <span class="fw-semibold text-body">{{ t('footer.product') }} v{{ app_version }}</span>
+    <nav class="d-flex flex-wrap gap-3">
+      <a class="link-secondary" href="{{ url_for('imprint') }}">{{ t('footer.imprint') }}</a>
+      <a class="link-secondary" href="{{ url_for('privacy') }}">{{ t('footer.privacy') }}</a>
+      {# Target comes from the legal file of this instance (per language); none configured → no link. #}
+      {% if legal.contact_url %}
+        <a class="link-secondary" href="{{ legal.contact_url }}" target="_blank"
+           rel="noopener">{{ t('footer.contact') }}</a>
+      {% endif %}
+    </nav>
+    <span class="ms-auto">{{ t('footer.deployment') }}: {{ deployment_stamp() }}</span>
+  </div>
+</footer>

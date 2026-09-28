@@ -1,0 +1,45 @@
+{# Target chooser for opening an image reference point: existing visible panel or new panel.
+   Response swaps the workspace and closes the modal via OOB. #}
+<div class="modal d-block show" tabindex="-1" style="background: rgba(0,0,0,0.5);" id="note-target-modal">
+  <div class="modal-dialog">
+    <form class="modal-content"
+          hx-post="/notes/{{ nid }}/refpoint/{{ idx }}/open-image"
+          hx-target="#workspace" hx-swap="outerHTML">
+
+      <div class="modal-header py-2">
+        <h5 class="modal-title">{{ t('notes.target.heading', image_id=image_id) }}</h5>
+        <button type="button" class="btn-close" aria-label="{{ t('common.cancel') }}"
+                onclick="document.getElementById('modal-container').innerHTML = ''"></button>
+      </div>
+
+      <div class="modal-body">
+        {% if variant %}
+          <div class="text-muted small mb-2"><i class="bi bi-image"></i> {{ variant }}</div>
+        {% endif %}
+        {% for c in choices %}
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="target" value="panel:{{ c.id }}"
+                   id="target-panel-{{ c.id }}" {{ 'checked' if loop.first }}>
+            <label class="form-check-label" for="target-panel-{{ c.id }}">
+              {{ t('config.source_panel', pid=c.id, descr=c.descr) }}
+            </label>
+          </div>
+        {% endfor %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="target" value="new"
+                 id="target-new" {{ 'checked' if not choices }}>
+          <label class="form-check-label" for="target-new">
+            <i class="bi bi-plus-circle"></i> {{ t('notes.target.new_panel') }}
+          </label>
+        </div>
+        <div class="form-text">{{ t('notes.target.hint') }}</div>
+      </div>
+
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary"
+                onclick="document.getElementById('modal-container').innerHTML = ''">{{ t('common.cancel') }}</button>
+        <button type="submit" class="btn btn-primary">{{ t('notes.target.open') }}</button>
+      </div>
+    </form>
+  </div>
+</div>

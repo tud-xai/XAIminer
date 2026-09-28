@@ -1,0 +1,271 @@
+{# Note form (create + edit), rendered inline in the notes dock (#notes-content). One form for both plain notes and audit-report entries: the "audit-report entry" switch reveals the requirements table and flips the title. Posts to /notes/new or /notes/<id>/edit; the response is the notes panel (list), swapped back into #notes-content. Cancel reloads the list. Editing shows existing reference points with keep-checkboxes (unchecking removes them). #}
+<form class="note-form"
+      hx-post="{{ '/notes/' ~ note.id ~ '/edit' if note else '/notes/new' }}"
+      hx-target="#notes-content" hx-swap="innerHTML">
+
+  {# Everything up to the action row scrolls; the row itself stays visible (see style.css).
+     The form is long — reference points plus, for a report entry, the requirements table —
+     and Save/Cancel used to be below the fold. #}
+  <div class="note-form-body">
+
+  <div class="d-flex align-items-start gap-2 mb-2">
+    {# Title text is swapped by the report-entry switch (JS island below) → keep it text-only. #}
+    <h6 class="mb-0 flex-grow-1" id="note-dialog-title"
+        data-title-note="{{ title_note }}" data-title-report="{{ title_report }}">
+      {{ title_report if is_report_entry else title_note }}
+    </h6>
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" role="switch" value="1"
+             name="is_report_entry" id="is-report-entry" {{ 'checked' if is_report_entry }}>
+      <label class="form-check-label small" for="is-report-entry">{{ t('report_entry.checkbox') }}</label>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label fw-bold small" for="note-title">{{ t('notes.title_label') }}</label>
+    <input type="text" class="form-control form-control-sm" name="title" id="note-title"
+           maxlength="{{ title_max }}" value="{{ note.title if note }}"
+           placeholder="{{ t('notes.title_ph', max=title_max) }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label fw-bold small" for="note-text">{{ t('notes.text_label') }}</label>
+    <textarea class="form-control form-control-sm" name="text" id="note-text" rows="3"
+              placeholder="{{ t('notes.text_ph') }}">{{ note.text if note }}</textarea>
+  </div>
+
+  {% include "partials/_req_section.html" %}
+
+  {% if note %}
+    <h6 class="small fw-bold">{{ t('notes.existing_refpoints') }}</h6>
+    {% if existing_refpoints %}
+      <div class="mb-3">
+        {% for rv in existing_refpoints %}
+          <div class="form-check" data-refpoint-row>
+            <input class="form-check-input" type="checkbox" name="ref_keep_{{ loop.index0 }}"
+                   value="1" id="ref-keep-{{ loop.index0 }}" checked>
+            <label class="form-check-label small" for="ref-keep-{{ loop.index0 }}" title="{{ rv.title }}">
+              <i class="bi {{ rv.icon }}"></i>
+              <span data-ref-label>{{ rv.label }}</span>
+              {# Live preview of the set a refresh would capture (filled by the JS island below);
+                 shown only while the refresh box is ticked. #}
+              {% if rv.type == 'workspace' %}
+                <span class="text-success d-none" data-ref-preview>→ {{ workspace_panel_ids }}</span>
+              {% endif %}
+            </label>
+            {# Workspace refpoints are frozen; offer an explicit refresh to the current workspace
+               so extending/changing panels can update the snapshot without dropping + re-adding. #}
+            {% if rv.type == 'workspace' %}
+              <div class="form-check form-check-inline ms-4 mt-1">
+                <input class="form-check-input" type="checkbox" name="ref_refresh_{{ loop.index0 }}"
+                       value="1" id="ref-refresh-{{ loop.index0 }}">
+                <label class="form-check-label small text-muted" for="ref-refresh-{{ loop.index0 }}">
+                  <i class="bi bi-arrow-clockwise"></i> {{ t('notes.ref_refresh') }}
+                </label>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <div class="form-text">{{ t('notes.keep_hint') }}</div>
+      </div>
+    {% else %}
+      <div class="text-muted small mb-3">{{ t('notes.no_refpoints') }}</div>
+    {% endif %}
+  {% endif %}
+
+  <h6 class="small fw-bold">{{ t('notes.add_refpoints') if note else t('notes.refpoints_heading') }}</h6>
+
+  {% if workspace_panel_ids or image_suggestions %}
+    <div class="mb-2">
+      <div class="fw-bold small mb-1">{{ t('notes.from_panels') }}</div>
+      {% if workspace_panel_ids %}
+        {# Preselected when CREATING: the panel configuration is what a note is about in almost
+           every case, and forgetting it is what makes a note worthless a week later. Not when
+           editing — there an extra snapshot would be added silently to what is already stored. #}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="ref_workspace"
+                 value="1" id="ref-workspace" {{ 'checked' if not note }}>
+          <label class="form-check-label small" for="ref-workspace">
+            <i class="bi bi-window-split"></i>
+            {{ t('notes.ref_workspace', panels=workspace_panel_ids) }}
+          </label>
+        </div>
+        <div class="form-text mt-0 mb-1">{{ t('notes.ref_workspace_hint') }}</div>
+      {% endif %}
+      {% for s in image_suggestions %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="ref_image_{{ s.id }}"
+                 value="{{ s.image_id }}" id="ref-image-{{ s.id }}">
+          <label class="form-check-label small" for="ref-image-{{ s.id }}">
+            <i class="bi bi-image"></i>
+            {{ t('notes.ref_current_image', pid=s.id, image_id=s.image_id, descr=s.descr) }}
+          </label>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="mb-2">
+    <label class="form-label fw-bold small mb-1" for="note-image-ids">{{ t('notes.image_ids_label') }}</label>
+    <input type="text" class="form-control form-control-sm" name="image_ids" id="note-image-ids"
+           placeholder="{{ t('notes.image_ids_ph') }}">
+    <div class="form-text">{{ t('notes.image_ids_hint') }}</div>
+  </div>
+
+  {# Collections as reference points: referenced by id, not copied — a referenced collection is frozen against destructive management operations (see the collections dialog), so the note keeps meaning what it meant. Collections a visible panel currently shows are marked. #}
+  {% if collections %}
+    <div class="mb-2">
+      <div class="fw-bold small mb-1">{{ t('notes.ref_collections') }}</div>
+      {% for c in collections %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="ref_collection"
+                 value="{{ c.id }}" id="ref-collection-{{ c.id }}">
+          <label class="form-check-label small" for="ref-collection-{{ c.id }}">
+            <i class="bi bi-collection"></i> {{ c.title }}
+            <span class="text-muted">({{ nt(c.count, 'gallery.image_count') }})</span>
+            {% if c.in_panel %}
+              <span class="badge text-bg-light border">{{ t('notes.ref_collection_in_panel') }}</span>
+            {% endif %}
+          </label>
+        </div>
+      {% endfor %}
+      <div class="form-text">{{ t('notes.ref_collections_hint') }}</div>
+    </div>
+  {% endif %}
+
+  <div class="mb-2">
+    <div class="fw-bold small mb-1">{{ t('notes.ref_models') }}</div>
+    {% for m in models %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="ref_model"
+               value="{{ m }}" id="ref-model-{{ loop.index0 }}">
+        <label class="form-check-label small" for="ref-model-{{ loop.index0 }}">
+          <i class="bi bi-cpu"></i> {{ m }}
+        </label>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="mb-2">
+    <div class="fw-bold small mb-1">{{ t('notes.ref_methods') }}</div>
+    {% for m in methods %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="ref_method"
+               value="{{ m }}" id="ref-method-{{ loop.index0 }}">
+        <label class="form-check-label small" for="ref-method-{{ loop.index0 }}">
+          <i class="bi bi-eye"></i> {{ m }}
+        </label>
+      </div>
+    {% endfor %}
+  </div>
+
+  </div>{# /.note-form-body #}
+
+  <div class="note-form-actions d-flex gap-2">
+    <button type="submit" class="btn btn-sm btn-primary">{{ t('notes.save') }}</button>
+    <button type="button" class="btn btn-sm btn-secondary"
+            onclick="xaiCancelNote()">{{ t('common.cancel') }}</button>
+  </div>
+</form>
+
+{# Warning before saving a note that records nothing about its subject. Deliberately a modal
+   and not hx-confirm: the text needs room, and hx-confirm would ask on EVERY save. Hidden until
+   the JS island below finds no reference point. Lives outside the <form> so its buttons cannot
+   submit it. #}
+<div class="modal d-none" tabindex="-1" id="note-noref-modal" style="background: rgba(0,0,0,0.5);">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning"></i>
+          {{ t('notes.noref.heading') }}</h5>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">{{ t('notes.noref.body') }}</p>
+        <p class="text-muted small mb-0">{{ t('notes.noref.hint') }}</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-primary" data-noref-back>{{ t('notes.noref.back') }}</button>
+        <button type="button" class="btn btn-outline-secondary" data-noref-save>{{ t('notes.noref.save') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% include "partials/_req_legend.html" %}
+
+{# JS island: (1) met/unmet checkbox exclusivity, (2) the report-entry switch reveals the requirements table and swaps the dialog title. IIFE, no globals — safe on every HTMX swap (fresh elements each time). #}
+<script>
+  (function () {
+    // Mark the form dirty on any edit → the cancel/Escape/close-dock guard warns before
+    // discarding unsaved changes (see base.html xaiConfirmDiscard).
+    var formEl = document.querySelector("#notes-content form");
+    if (formEl) {
+      var markDirty = function () { formEl.dataset.dirty = "1"; };
+      formEl.addEventListener("input", markDirty);
+      formEl.addEventListener("change", markDirty);
+      // Live preview: ticking "update to current workspace" strikes the frozen panel set and
+      // reveals the set the refresh will capture (e.g. a freshly duplicated panel), so the change
+      // is visible before saving.
+      formEl.querySelectorAll('input[name^="ref_refresh_"]').forEach(function (box) {
+        var row = box.closest("[data-refpoint-row]");
+        if (!row) return;
+        var preview = row.querySelector("[data-ref-preview]");
+        var label = row.querySelector("[data-ref-label]");
+        var sync = function () {
+          if (preview) preview.classList.toggle("d-none", !box.checked);
+          if (label) label.classList.toggle("text-decoration-line-through", box.checked);
+        };
+        box.addEventListener("change", sync);
+        sync();
+      });
+    }
+    // Saving without any reference point: warn once, then let it pass. A note that does not
+    // record its subject is unusable later — but a hard requirement would be wrong, so this is
+    // a warning, not a rule. htmx:confirm is htmx's hook for exactly this: preventDefault()
+    // holds the request, issueRequest(true) resumes it after the answer.
+    var noRef = document.getElementById("note-noref-modal");
+    if (formEl && noRef) {
+      var hasRefpoint = function () {
+        // Covers ref_workspace, ref_image_*, ref_collection, ref_model, ref_method and — when
+        // editing — the ref_keep_* boxes of the existing points.
+        if (formEl.querySelector('input[name^="ref_"]:checked')) return true;
+        var ids = formEl.querySelector('input[name="image_ids"]');
+        return !!(ids && ids.value.trim());
+      };
+      var closeNoRef = function () {
+        noRef.classList.add("d-none");
+        noRef.classList.remove("d-block");
+      };
+      formEl.addEventListener("htmx:confirm", function (e) {
+        if (e.detail.elt !== formEl || hasRefpoint()) return;
+        e.preventDefault();
+        noRef.classList.remove("d-none");
+        noRef.classList.add("d-block");
+        noRef.querySelector("[data-noref-save]").onclick = function () {
+          closeNoRef();
+          e.detail.issueRequest(true);
+        };
+        noRef.querySelector("[data-noref-back]").onclick = closeNoRef;
+      });
+    }
+    var tbl = document.getElementById("req-table");
+    if (tbl) {
+      tbl.addEventListener("change", function (e) {
+        var cb = e.target;
+        if (cb.type !== "checkbox" || !cb.dataset.reqPair) return;
+        if (cb.checked) {
+          var pair = document.getElementById(cb.dataset.reqPair);
+          if (pair) pair.checked = false;
+        }
+      });
+    }
+    var toggle = document.getElementById("is-report-entry");
+    var section = document.getElementById("req-section");
+    var title = document.getElementById("note-dialog-title");
+    if (toggle) {
+      toggle.addEventListener("change", function () {
+        if (section) section.classList.toggle("d-none", !toggle.checked);
+        if (title) title.textContent = toggle.checked
+          ? title.dataset.titleReport : title.dataset.titleNote;
+      });
+    }
+  })();
+</script>

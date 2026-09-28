@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local app config (machine-specific)
+xai_viewer/config.toml
+
+# Deployment config (host, paths, SECRET_KEY, Basic-Auth hash — never commit)
+/config.toml
+
+# Legal texts of your instance (copy of xai_viewer/legal.example.toml)
+xai_viewer/legal.toml
+
+# Written by the deployment on the server (shown in the footer)
+deployment_date.txt
+
+# Deployment scratch (rendered service files)
+deployment/tmp_workdir/
+
+# ── user data: the JSON/TOML files ARE the database — never commit ──────────
+# Notes, collections, labelling stores, per-user requirements catalogs (the master
+# requirements.toml IS tracked), accounts (password hashes), tracking records
+xai_viewer/notes.json
+xai_viewer/collections.json
+xai_viewer/labeling_*.json
+xai_viewer/requirements_*.toml
+xai_viewer/accounts.toml
+xai_viewer/tracking/
+xai_viewer/*.json.lock

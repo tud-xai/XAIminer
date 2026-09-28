@@ -1,0 +1,3 @@
+{# Embedded workspace state data (for JS, e.g. arrow-key gate). Separate partial so the
+   link toggle can update it via out-of-band swap (keeps the arrow-key gate current). #}
+<script id="data-page" type="application/json"{% if oob %} hx-swap-oob="true"{% endif %}>{{ page_data | tojson }}</script>

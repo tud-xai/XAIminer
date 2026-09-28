@@ -1,0 +1,85 @@
+{# Entire workspace: panel bar + visible panels. Replaced via HTMX. With oob=True the block swaps itself out-of-band, so a response aimed elsewhere (e.g. the collections dialog body) can refresh the panels alongside — see _render_workspace(oob=True). #}
+<div id="workspace"{% if oob %} hx-swap-oob="true"{% endif %}>
+
+  {# ── Panel bar: overview of all panels (visible/active) ── #}
+  <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+    {% for p in panels %}
+      <div class="d-flex align-items-center gap-1">
+        <span class="badge text-bg-secondary {{ '' if p.visible else 'opacity-50' }}">
+          P{{ p.id }} · {{ model_labels[p.model] }} ·
+          {{ t('config.modelcard') if p.is_modelcard else p.xai_label }}
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                hx-post="/panel/{{ p.id }}/toggle" hx-target="#workspace" hx-swap="outerHTML"
+                title="{{ t('workspace.panel_hide') if p.visible else t('workspace.panel_show') }}">
+          <i class="bi {{ 'bi-eye' if p.visible else 'bi-eye-slash' }}"></i>
+        </button>
+      </div>
+    {% endfor %}
+
+    <button type="button" class="btn btn-sm btn-success"
+            hx-post="/panel/new" hx-target="#workspace" hx-swap="outerHTML"
+            {% if panel_limit_reached %}disabled title="{{ t('workspace.panel_limit', max=max_panels) }}"{% endif %}>
+      <i class="bi bi-plus-circle"></i> {{ t('workspace.new_panel') }}
+    </button>
+
+    {% if panels | length >= 2 %}
+      <button type="button" class="btn btn-sm {{ 'btn-primary' if all_linked else 'btn-outline-secondary' }}"
+              hx-post="/panels/link-all" hx-target="#workspace" hx-swap="outerHTML"
+              title="{{ t('workspace.unlink_all_title') if all_linked else t('workspace.link_all_title') }}">
+        <i class="bi bi-link-45deg"></i> {{ t('workspace.unlink_all') if all_linked else t('workspace.link_all') }}
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              hx-post="/panels/adopt-base" hx-target="#workspace" hx-swap="outerHTML"
+              title="{{ t('workspace.adopt_base_title') }}"
+              {% if not adopt_base_enabled %}disabled{% endif %}>
+        <i class="bi bi-box-arrow-in-left"></i> {{ t('workspace.adopt_base') }}
+      </button>
+    {% endif %}
+
+    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto"
+            hx-post="/layout/toggle-scroll" hx-target="#workspace" hx-swap="outerHTML"
+            title="{{ t('workspace.layout_toggle_title') }}">
+      <i class="bi {{ 'bi-arrows-expand-vertical' if layout_scroll else 'bi-arrow-left-right' }}"></i>
+      {{ t('workspace.layout_scroll') if layout_scroll else t('workspace.layout_fit') }}
+    </button>
+
+    {% include "partials/_sync_control.html" %}
+  </div>
+
+  {# ── Panels side by side ── #}
+  <div class="panel-row {{ 'panel-row-scroll' if layout_scroll else '' }}">
+    {% for p in panels if p.visible %}
+      {% include "partials/_panel.html" %}
+    {% else %}
+      <div class="text-muted p-5 text-center w-100">
+        {{ t('workspace.no_visible_prefix') }} <em>{{ t('workspace.new_panel') }}</em> {{ t('workspace.no_visible_suffix') }}
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    // Align the image tops across single-view panels: a panel whose control row wraps (CRAFT/CRP
+    // selects push the prediction badge into a second line) would otherwise start its image lower
+    // than its neighbours. Every control row gets the tallest row's height as min-height.
+    // Observes the panel row rather than window: its width also changes without a window resize
+    // (notes dock), and the observer dies with the element on the next swap (no listener pile-up).
+    (function () {
+      const row = document.querySelector("#workspace .panel-row");
+      if (!row || typeof ResizeObserver === "undefined") return;
+      function equalize() {
+        const bars = row.querySelectorAll("[data-single-controls]");
+        bars.forEach(function (el) { el.style.minHeight = ""; });
+        if (bars.length < 2) return;
+        let max = 0;
+        bars.forEach(function (el) { max = Math.max(max, el.offsetHeight); });
+        bars.forEach(function (el) { el.style.minHeight = max + "px"; });
+      }
+      new ResizeObserver(function () { requestAnimationFrame(equalize); }).observe(row);
+      equalize();
+      if (document.fonts) document.fonts.ready.then(equalize);
+    })();
+  </script>
+
+  {% include "partials/_page_data.html" %}
+</div>

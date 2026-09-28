@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ product }} – {{ t('workspace.page_title') }}{% endblock %}
+
+{% block content %}
+{{ workspace_html | safe }}
+{% endblock %}
+
+{% block scripts %}
+{% if modal_html %}
+<script>
+  // htmx.swap, not innerHTML: scripts inserted via innerHTML never run, which left the dialog's
+  // islands (e.g. the confidence toggle) dead on this first-visit path.
+  htmx.swap("#modal-container", {{ modal_html | tojson }}, { swapStyle: "innerHTML" });
+</script>
+{% endif %}
+{% endblock %}

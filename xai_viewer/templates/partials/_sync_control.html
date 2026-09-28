@@ -1,0 +1,24 @@
+{# Sync control for linked single-image panels. Separate partial with a stable id so the
+   (purely client-side) link toggle can update it via out-of-band swap without re-rendering
+   the whole workspace. `display:contents` → no empty flex slot. #}
+<span id="sync-control" style="display: contents"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% set linked_single = panels | selectattr('visible') | selectattr('view', 'equalto', 'single') | selectattr('linked') | list %}
+  {% if linked_single %}
+    <div class="btn-group btn-group-sm" role="group"
+         title="{{ t('sync.title') }}">
+      {# The title above sits on the GROUP; these two hold only an icon, so without a name of
+         their own a screen reader announces them as nothing at all. #}
+      <button type="button" class="btn btn-outline-primary"
+              title="{{ t('sync.prev') }}" aria-label="{{ t('sync.prev') }}"
+              hx-post="/step-all/prev" hx-target="#workspace" hx-swap="outerHTML">
+        <i class="bi bi-chevron-double-left"></i>
+      </button>
+      <button type="button" class="btn btn-outline-secondary disabled">{{ t('sync.label') }}</button>
+      <button type="button" class="btn btn-outline-primary"
+              title="{{ t('sync.next') }}" aria-label="{{ t('sync.next') }}"
+              hx-post="/step-all/next" hx-target="#workspace" hx-swap="outerHTML">
+        <i class="bi bi-chevron-double-right"></i>
+      </button>
+    </div>
+  {% endif %}
+</span>

@@ -1,0 +1,33 @@
+# systemd user service for {{context.project_name}} — FOR UBERSPACE 8 ONLY.
+#
+# NOT IN USE: this deployment targets Uberspace 7, which manages user daemons with supervisord
+# (see ../../../etc/services.d/template_PROJECT_NAME.ini — that is the file deploy.py renders).
+# Kept for a future migration: on Uberspace 8 supervisord is gone and user services are managed
+# with `systemctl --user`. To switch over, render this template instead and swap the three
+# supervisorctl calls in deploy.py (they are documented next to the supervisord ones).
+#
+# This file would be rendered at {{context.time_stamp}} and rsynced to ~/.config/systemd/user/.
+#
+# Manage:  systemctl --user {start,stop,restart,status} {{context.project_name}}
+# Logs:    journalctl --user -u {{context.project_name}} -f
+
+[Unit]
+Description=gunicorn WSGI server for {{context.project_name}}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={{context.deployment_path}}/deployment
+# --chdir puts deployment/ on sys.path so `wsgi:app` resolves; wsgi.py then adds xai_viewer/
+# (the app is a flat script layout, not an installed package).
+# Several workers because one gallery view fetches hundreds of images: with a single worker
+# those requests serialise. --timeout is raised for thumbnails generated on first access.
+ExecStart={{context.venv_abs_bin_path}}/gunicorn --capture-output \
+          --chdir {{context.deployment_path}}/deployment \
+          --workers 3 --timeout 60 \
+          --bind 0.0.0.0:{{context.port}} wsgi:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

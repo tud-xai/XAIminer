@@ -1,0 +1,13 @@
+{# A label whose box is as wide as its LONGEST translation, so switching the language does not
+   shift whatever sits next to it (navbar buttons!). Every variant is rendered on top of the
+   others in a single grid cell; the inactive ones only reserve space (visibility: hidden, so
+   screen readers skip them too). Direction-agnostic on purpose: if a rename ever makes German
+   the longest text, nothing has to change here.
+
+   Usage:  {% set stable_key = 'nav.demonstrator_tag' %}{% include 'partials/_stable_label.html' %}
+   Optional: stable_class (extra classes on the outer box). #}
+<span class="stable-label {{ stable_class | default('') }}">
+  {%- for lang, text in t_variants(stable_key) -%}
+    <span{% if lang != get_lang() %} class="stable-label-ghost"{% endif %}>{{ text }}</span>
+  {%- endfor -%}
+</span>

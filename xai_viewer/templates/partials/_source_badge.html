@@ -1,0 +1,17 @@
+{# Subtle indicator of a panel's image-source relationship. Standalone partial so it can be easily disabled/removed later (just remove this include from _panel.html). Expects: p.source_panel_id (follower → source), p.follower_ids (source → followers) or p.source_collection_title (collection snapshot). #}
+{% if p.source_collection_title %}
+  <span class="badge rounded-pill text-bg-light border text-muted fw-normal"
+        title="{{ t('badge.collection_title', title=p.source_collection_title) }}">
+    <i class="bi bi-collection"></i> {{ p.source_collection_title }}
+  </span>
+{% elif p.source_panel_id %}
+  <span class="badge rounded-pill text-bg-light border text-muted fw-normal"
+        title="{{ t('badge.follows_title', pid=p.source_panel_id) }}">
+    <i class="bi bi-link-45deg"></i> &larr; P{{ p.source_panel_id }}
+  </span>
+{% elif p.follower_ids %}
+  <span class="badge rounded-pill text-bg-light border text-muted fw-normal"
+        title="{{ t('badge.source_title_prefix') }} {% for fid in p.follower_ids %}P{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %}">
+    <i class="bi bi-link-45deg"></i> &rarr; {% for fid in p.follower_ids %}P{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %}
+  </span>
+{% endif %}

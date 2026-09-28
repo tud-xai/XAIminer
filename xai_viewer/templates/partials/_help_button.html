@@ -1,0 +1,40 @@
+{# Help button + dialog, shared by every view of the application. Include it left of the language
+   switcher. A tool with real help sets `help_body` to its own partial before including this one;
+   without that the honest default is shown. Native <dialog> rather than a Bootstrap modal: only
+   base.html loads the Bootstrap bundle, pages with their own skeleton may not, and one <dialog>
+   works everywhere without a new dependency.
+   A view whose help is a page sets `help_url` instead: the button becomes a link opening it in a
+   new tab, and no dialog is rendered. #}
+{% if help_url %}
+<a class="btn btn-sm btn-outline-secondary" id="app-help-btn" href="{{ help_url }}"
+   target="_blank" rel="noopener" title="{{ t('help.title') }}">{% set stable_key, stable_class = 'help.button', 'stable-label-center' %}{% include 'partials/_stable_label.html' %}</a>
+{% else %}
+<button type="button" class="btn btn-sm btn-outline-secondary" id="app-help-btn"
+        title="{{ t('help.title') }}">{% set stable_key, stable_class = 'help.button', 'stable-label-center' %}{% include 'partials/_stable_label.html' %}</button>
+
+<dialog id="app-help" class="border-0 rounded shadow p-0" aria-labelledby="app-help-title">
+  <div class="p-3" style="max-width: 42rem">
+    <div class="d-flex align-items-start gap-3 mb-2">
+      <h5 class="mb-0" id="app-help-title">{{ t('help.title') }}</h5>
+      <button type="button" class="btn-close ms-auto" id="app-help-close"
+              aria-label="{{ t('help.close') }}"></button>
+    </div>
+    {% include help_body | default('partials/_help_default.html', true) %}
+  </div>
+</dialog>
+
+<script>
+  // Island: nothing in the global scope. The navbar is never swapped by HTMX, but the guard keeps
+  // a second include on the same page from wiring the listeners twice.
+  (function () {
+    var dialog = document.getElementById("app-help");
+    if (!dialog || dialog.dataset.wired) return;
+    dialog.dataset.wired = "1";
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest) return;
+      if (e.target.closest("#app-help-btn")) dialog.showModal();
+      else if (e.target.closest("#app-help-close")) dialog.close();
+    });
+  })();
+</script>
+{% endif %}

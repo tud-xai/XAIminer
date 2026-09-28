@@ -1,0 +1,154 @@
+# Deployment configuration for XAIminer (Uberspace, see deployment/README.md).
+#
+# Copy to `config.toml` (repo root, gitignored) and fill in. This file configures the
+# *deployment* (host, paths, service, secrets) — not the app's data settings; those live in
+# `xai_viewer/config.toml` locally and are derived from this file on the server (see
+# `deployment/wsgi.py`). `%(key)s` refers to another value in this file.
+#
+# Note: `deployment/deploy.py` looks for `config.toml` starting at its own directory and then
+# upwards, so the repo root is the right place (the app's `xai_viewer/config.toml` is never
+# picked up by mistake — different directory branch).
+
+
+# #############################################################################
+# general settings (no action necessary)
+# #############################################################################
+
+# valid values are "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+LOGLEVEL = "INFO"
+
+
+# #############################################################################
+# deployment settings which need to be changed
+# #############################################################################
+
+remote = 'somehost.uberspace.de'
+user = 'someuser'
+
+
+# #############################################################################
+# deployment settings which should be OK for most use cases
+# #############################################################################
+
+app_name = "xai-viewer"
+PROJECT_NAME = 'xaiviewer'
+port = '5000'
+
+# Served on the default <user>.uber.space domain (exists on every account, no
+# `web domain add` needed). For an extra subdomain, uncomment and prefix BASE_URL
+# with "%(subdomain)s." — then run once: uberspace web domain add <subdomain>.%(user)s.uber.space
+
+subdomain = "xraise"
+
+BASE_URL = "//%(subdomain)s.%(user)s.uber.space/"
+BASE_URL__DEVMODE = "//localhost:%(port)s"
+
+deployment_path = "/home/%(user)s/%(PROJECT_NAME)s-deployment/%(app_name)s"
+
+# Datasets live *beside* the deployment directory, not inside it: they are huge (RailPer alone
+# ~1 GB / 17.500 files), they are not in the repo, and they must survive every deploy and even
+# `--purge`. This default is exactly what the app resolves on its own
+# (<xai_viewer>/../../datasets), so no extra app config is needed on the server.
+datasets_path = "/home/%(user)s/%(PROJECT_NAME)s-deployment/datasets"
+
+# Which datasets `deploy.py --upload-datasets` transfers (directory names under the local
+# datasets root). Deliberately explicit — uploading everything would be several GB.
+datasets = ["RailPer"]
+
+# Preselected dataset on the server. MUST be one of the uploaded ones: the app's code default is
+# "RailPer", and a default that is not there makes every entry point answer with the "setup
+# required" page (HTTP 500) instead of working.
+default_dataset = "RailPer"
+
+# Local datasets root (source of the upload). Defaults to <repo>/../datasets when unset.
+#local_datasets_root = "/pfad/zu/datasets"
+
+# What NOT to transfer with --upload-datasets (rsync patterns). Default when unset:
+# ["thumbs-old/"]. rsync runs without --delete, so uploading a subset now and the rest later is
+# a supported workflow — the later run only adds what is missing.
+# What is needed for what:
+#   originals/imgs/ + metadata.json  always (the single-image view shows full-resolution originals)
+#   thumbs/                          gallery thumbnails; missing ones are generated on the server
+#                                    (~0.6 s each) — pre-warm locally with tools/make_thumbnails.py
+#   xai/                             the XAI renderings (RailPer: 403 MB). Without them the app
+#                                    falls back to the original with a "no XAI" badge.
+#   originals/annots/, inference/    only inputs of tools/build_metadata.py, unused at runtime
+# Lean upload without the renderings (RailPer: ~499 MB instead of ~902 MB):
+#dataset_upload_excludes = ["thumbs-old/", "xai/"]
+
+# User data (notes.json, collections.json, labeling_*.json) is copied here before every
+# deploy. Outside <deployment_path> because --purge deletes that completely.
+BACKUP_PATH = "%(deployment_path)s/../%(PROJECT_NAME)s_backups"
+
+# name (not path)
+venv = "%(PROJECT_NAME)s-venv"
+
+# ALWAYS an explicit minor version, never bare "python3": on Uberspace hosts `python3` can be
+# ancient (3.6) while the usable interpreters exist as separate `python3.11`…`python3.14`
+# executables. The app needs >= 3.11 (tomllib); 3.12 is the sweet spot — new enough, and pillow /
+# xhtml2pdf ship wheels for it. Check on the host with `ls /usr/bin/python3.*`.
+# The venv is created with `<python_version> -m venv` (stdlib), so no separate pip is needed.
+python_version = "python3.12"
+
+
+DEBUG = false
+# DEBUG__DEVMODE = true
+
+
+# Flask session cookies are signed with this. Create one with:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+SECRET_KEY = "7qY1ZeV6Sh--example-secret--XEbwJsBwtI9vV3pcA"
+
+
+# #############################################################################
+# access protection (HTTP Basic Auth in front of the whole app)
+# #############################################################################
+
+# One HTTP-Basic prompt in front of everything — hoster-independent, and it also covers
+# the image routes. Use it for an INTERNAL instance.
+#
+# For the PUBLIC DEMO leave AUTH_USER empty and set DEMO_MODE = true below: the prompt would
+# keep exactly the anonymous visitors out that the demo is for. Visitors are then separated by
+# the app itself (guest sandboxes and accounts, see BETRIEB.md "Nutzer und Konten").
+AUTH_USER = "xai"
+
+# Generate the hash with:
+#   python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('your-password'))"
+AUTH_PASSWORD_HASH = "pbkdf2:sha256:600000$example$replace-me"
+
+
+# #############################################################################
+# public demo mode
+# #############################################################################
+
+# Turns anonymous visitors into private, throwaway sandboxes, switches internal side tools
+# off, caps request size and how much one visitor may store, and keeps
+# search engines out. See BETRIEB.md "Demo-Modus" and "Nutzer und Konten".
+DEMO_MODE = false
+
+# How long a guest sandbox survives without activity (hours). Accounts are never collected.
+GUEST_TTL_HOURS = 48
+
+# Set to true when the site is served over HTTPS: the session cookie then carries `Secure`.
+# Leave false for a plain-HTTP test, otherwise the browser drops the cookie and nothing works.
+COOKIE_SECURE = true
+
+# Only needed if a proxy rewrites the Host header and every action starts answering 403
+# ("Cross-site request rejected"). Comma-separated list, e.g. "https://demo.example.org".
+# ALLOWED_ORIGINS = ""
+
+# Where the accounts of the known users live. Default (commented out): accounts.toml next to
+# the JSON stores in the deployed xai_viewer/. The file is never uploaded — create the accounts
+# ON THE SERVER: `python xai_viewer/tools/manage_accounts.py add <name>`.
+# ACCOUNTS_FILE = ""
+
+
+# #############################################################################
+# legal texts (imprint, privacy policy, contact link)
+# #############################################################################
+
+# Whoever runs a publicly reachable instance is responsible for its imprint and privacy policy.
+# Default (commented out): xai_viewer/legal.toml, which is uploaded with the project — copy
+# xai_viewer/legal.example.toml there and fill it in. Without it /imprint and /privacy say that
+# nothing is configured.
+# LEGAL_FILE = "/home/%(user)s/legal.toml"
