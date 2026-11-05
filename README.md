@@ -3,7 +3,7 @@
 **A test bench for AI models and their explanations.**
 
 [![CI](https://github.com/tud-xai/XAIminer/actions/workflows/ci.yml/badge.svg)](https://github.com/tud-xai/XAIminer/actions/workflows/ci.yml)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 
 XAIminer (*XAI* + *examiner*) is an interactive web application for inspecting image
@@ -161,13 +161,14 @@ deployment/            WSGI entry point and Uberspace deployment script
 
 ## License
 
-Copyright © 2026 Romy Müller, Sascha Weber, Carsten Knoll
+Copyright © 2026 Romy Müller, Sascha Weber, Carsten Knoll, Kilian Göller, Steffen Seitz
 
-XAIminer is free software: you can redistribute it and/or modify it under the terms of the
-[GNU Affero General Public License v3.0](LICENSE). If you run a modified version as a network
-service, the AGPL requires you to offer its source code to the service's users.
+XAIminer is licensed under the [Apache License 2.0](LICENSE). You may use, modify and
+redistribute it, also as part of your own products, as long as you keep the copyright and licence
+notices. The first public release of 28 September 2026 was published under the GNU Affero General
+Public License v3.0 and remains available under that licence.
 
-The AGPL covers the source code. The screenshots and the overview figure contain images from the
+The licence covers the source code. The screenshots and the overview figure contain images from the
 dataset *RailPer*, which is compiled from RailSem19, RAWPED and other sources. Those images are
 subject to the licences of their source datasets.
 
