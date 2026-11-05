@@ -21,6 +21,17 @@
 # Footer "Kontakt" and the login's "Login anfragen" link. Omit to hide both.
 contact_url = "https://[ihre-projektseite.example.org]"
 
+# Optional announcement above the login form (e.g. an upcoming event). Every key but `title` is
+# optional; `show_until` (TOML date, inclusive) hides it automatically afterwards.
+# [de.announcement]
+# title = "Aktuell: …"
+# paragraphs = ["…"]
+# contact_label = "Anmeldung und Fragen"
+# contact_name = "…"
+# contact_email = "kontakt@example.org"
+# note = "…"
+# show_until = 2026-12-31
+
 [de.imprint]
 lead = "Dieses Angebot ist ein Forschungsdemonstrator der [Einrichtung]."
 # Optional link behind the lead, e.g. to the institution's own imprint.

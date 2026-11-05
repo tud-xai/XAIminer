@@ -18,6 +18,11 @@ exactly like it adopts another panel's filter result — the discriminator in th
 
 ``origin`` is provenance only (how the set was captured) — the id list is authoritative.
 
+Optional ``"quicksort_role": "keep"|"drop"`` marks the collection as the target of the quick-sort
+key A resp. D (app.py). At most one collection per owner, dataset and role carries it. It lives on
+the record rather than in the session so it survives logging out and follows the account to
+another device — and it disappears with the collection, so it can never dangle.
+
 The management operations (rename, clone, merge, remove single images, delete) are plain id-set
 edits here. Whether a given collection may be edited *in place* at all is **not** decided in this
 module: a collection referenced by a note is frozen, and the caller clones it first (see
@@ -160,6 +165,22 @@ class CollectionsStore:
             origin={"kind": "clone", "source_id": cid, "source_title": source["title"],
                     "source_origin": source.get("origin") or {}},
         )
+
+    def set_quicksort_roles(self, owner: str, dataset: str, roles: dict):
+        """Makes ``roles`` ({"keep": cid|None, "drop": cid|None}) the quick-sort targets of this
+        owner's collections in <dataset>: the role is removed from every other collection there.
+        Not a content change, so ``updated_at`` is left alone."""
+        with locked(self.path):
+            data = self._load()
+            for collection in data["collections"]:
+                if owner_of(collection) != owner or collection.get("dataset") != dataset:
+                    continue
+                role = next((r for r, cid in roles.items() if cid == collection["id"]), None)
+                if role:
+                    collection["quicksort_role"] = role
+                else:
+                    collection.pop("quicksort_role", None)
+            self._save(data)
 
     def add_images(self, cid: int, owner: str, image_ids: list):
         """Appends image ids to a collection, skipping ones already in it (order preserved).

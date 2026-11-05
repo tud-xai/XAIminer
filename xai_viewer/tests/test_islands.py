@@ -81,6 +81,10 @@ class TestIslands(unittest.TestCase):
         finally:
             app_module.TRACKING_ENABLED = previous
 
+    def test_j06__quicksort_island_behaves(self):
+        """A/D/Ctrl+Z: typing and dialog gates, browser shortcuts left alone, undo order."""
+        self._check("check_quicksort.js", self._workspace())
+
 
 if __name__ == "__main__":
     unittest.main()

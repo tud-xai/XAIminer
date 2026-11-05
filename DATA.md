@@ -290,8 +290,13 @@ railsem19_no_person_rs01012,3,2,0.0307,0.0001,#fa0051
 - **Join immer über den Basisnamen ohne Endung** (A8). `all_labels.image_name` (ohne `.jpg`)
   = imgs-Dateiname = annots-`.json`-Name = inference-`image_name`, alle ohne Endung.
   `.jpg`/`.png` koexistieren; der Join ignoriert die Endung.
-- **XAI-Zuordnung per Stem-Präfix-Match** (Q3): Der Original-Basisname steht am Anfang des
-  XAI-Dateinamens, optionaler Appendix vor der Endung (Mock: `<basename>_gradcam.<ext>`).
+- **XAI-Dateiname exakt `<basename>_<appendix>.<ext>`** (Q3): `appendix` = Methodenname in
+  Kleinbuchstaben, Ausnahme `Grad-CAM` → `gradcam` (`xai_naming.py`, von App und
+  `build_metadata.py` gemeinsam genutzt); `ext` wird unter `.jpg`/`.jpeg`/`.png` gesucht, die
+  Endung des Originals zuerst. Kein Präfix-Match: ein anders benannter Anhang zählt zwar als
+  Verfügbarkeit („irgendein Bild im Ordner“), die App findet ihn aber nicht → „kein XAI“.
+  `build_metadata.py` warnt deshalb je Ordner über Dateien, die zu keinem Original passen
+  (CRP ausgenommen, dessen Heatmaps über `concepts.csv` benannt sind).
 - **Klassen-Normalisierung** (A13): Negativklasse erscheint als `not person` **und**
   `no person` → beim Einlesen beide auf Token `not_person`, `person` → `person`.
   Klassifikation ist strikt **binär**.

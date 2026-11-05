@@ -12,9 +12,20 @@
       <i class="bi bi-plus-circle"></i> {{ t('notes.new') }}
     {% endif %}
   </button>
-  <a class="btn btn-sm btn-outline-primary ms-auto" href="/report" target="_blank"
+  <a class="btn btn-sm btn-outline-secondary ms-auto" href="/export/my-data" download
+     title="{{ t('export.download_title') }}">
+    <i class="bi bi-download"></i> {{ t('export.download') }}
+  </a>
+  <a class="btn btn-sm btn-outline-primary" href="/report" target="_blank"
      title="{{ t('protocol.report_title') }}">
     <i class="bi bi-file-earmark-text"></i> {{ t('protocol.report') }}
   </a>
+</div>
+{# Quick-notes switch (app.py, "quick notes"): shows/hides the bar below the panels. #}
+<div class="form-check form-switch small mb-2" title="{{ t('quicknote.switch_title') }}">
+  <input class="form-check-input" type="checkbox" role="switch" id="quicknotes-switch"
+         {{ 'checked' if session.quicknotes }}
+         hx-post="/quicknotes/toggle" hx-target="#notes-content" hx-swap="innerHTML">
+  <label class="form-check-label" for="quicknotes-switch">{{ t('quicknote.switch') }}</label>
 </div>
 <div id="notes-list">{% include "partials/_notes_list.html" %}</div>

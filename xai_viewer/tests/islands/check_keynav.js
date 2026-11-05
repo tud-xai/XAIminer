@@ -12,13 +12,14 @@ const script = pickScript(process.argv[2], "__xaiKeyNav");
 const LINKED = { linked_single_panel_ids: [1, 2] };
 
 /** Builds a world and returns a `press` helper that reports what the island did. */
-function makeWorld({ pageData = JSON.stringify(LINKED), hasPageData = true } = {}) {
+function makeWorld({ pageData = JSON.stringify(LINKED), hasPageData = true, zoomOpen = false } = {}) {
   const calls = [];
   const listeners = {};
   const window = {};
   const document = {
     getElementById: (id) =>
-      (id === "data-page" && hasPageData ? { textContent: pageData } : null),
+      (id === "data-page" && hasPageData ? { textContent: pageData }
+       : id === "image-zoom" ? { open: zoomOpen } : null),
     addEventListener: (type, fn) => (listeners[type] = listeners[type] || []).push(fn),
     body: { addEventListener() {} },
   };
@@ -80,6 +81,10 @@ section("state gate");
 
   const missingKey = makeWorld({ pageData: JSON.stringify({ panel_count: 2 }) });
   check(missingKey.press("ArrowRight").calls.length === 0, "key absent → no request");
+
+  const zoom = makeWorld({ zoomOpen: true });
+  const z = zoom.press("ArrowRight");
+  check(z.calls.length === 0 && !z.prevented, "large view open → no stepping");
 
   const noData = makeWorld({ hasPageData: false });
   check(noData.press("ArrowRight").calls.length === 0, "no #data-page (e.g. login page) → no request");

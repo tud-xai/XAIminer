@@ -11,6 +11,28 @@
 {% block content %}
 <div class="row justify-content-center mt-4">
   <div class="col-sm-10 col-md-7 col-lg-5">
+    {# Operator announcement (e.g. an upcoming event) from the legal file; retires itself after
+       `show_until`. Above the card: whoever lands here should see it before logging in. #}
+    {% if announcement %}
+      <aside class="alert alert-primary mb-3">
+        <h6 class="alert-heading fw-semibold mb-2">
+          <i class="bi bi-calendar-event me-1"></i>{{ announcement.title }}
+        </h6>
+        {% for paragraph in announcement.paragraphs | default([]) %}
+          <p class="small mb-2">{{ paragraph }}</p>
+        {% endfor %}
+        {% if announcement.contact_email %}
+          <p class="small mb-1">
+            {% if announcement.contact_label %}<span class="fw-semibold">{{ announcement.contact_label }}:</span>{% endif %}
+            {{ announcement.contact_name ~ ',' if announcement.contact_name }}
+            <a href="mailto:{{ announcement.contact_email }}" class="alert-link">{{ announcement.contact_email }}</a>
+          </p>
+        {% endif %}
+        {% if announcement.note %}
+          <p class="small mb-0">{{ announcement.note }}</p>
+        {% endif %}
+      </aside>
+    {% endif %}
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <h3 class="card-title mb-1">

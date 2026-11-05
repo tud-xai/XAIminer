@@ -8,4 +8,4 @@ from (build-free by design). Bump it when something user-visible changes.
 # read it from here instead of repeating a literal in every template.
 __product__ = "XAIminer"
 
-__version__ = "0.8.5"
+__version__ = "0.11.0"

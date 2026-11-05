@@ -150,7 +150,7 @@ datasets/<name>/
 │   ├── manual_labels.json      # optional: Handlabels (Filter-Attribute)
 │   └── scene_attributes.csv    # optional, nur synthetische Datensätze
 ├── xai/
-│   └── <Modell>/<Methode>/<Stufe>/<basename><anhang>.{jpg|png}
+│   └── <Modell>/<Methode>/<Stufe>/<basename>_<anhang>.{jpg|png}
 ├── inference/
 │   └── inference_results_<Modell>_<Stufe>.csv
 ├── model_meta.csv              # optional: Modell-Metadaten für den Modellüberblick
@@ -172,7 +172,8 @@ Was die einzelnen Teile in der Anwendung bewirken:
 
 - **Verknüpfung über den Basisnamen ohne Endung.** `img_0042.jpg` in `imgs/`, die Zeile
   `img_0042` in `all_labels.csv`, `img_0042_gradcam.png` unter `xai/` und die Zeile in der
-  Inference-CSV gehören zusammen.
+  Inference-CSV gehören zusammen. Der Anhang hinter `_` ist fest vorgegeben, siehe
+  [Abschnitt 4.5](#45-eigene-xai-ergebnisse-einpflegen).
 - **Modelle, XAI-Methoden und Stufen werden aus dem Dateisystem erkannt**, nicht aus einer
   festen Liste: jedes Verzeichnis `xai/<Modell>/<Methode>/<Stufe>/` mit mindestens einem Bild
   zählt. Namen sind überall identisch (Verzeichnis = Anzeige), z. B. `VGG16`, `Grad-CAM`,
@@ -234,6 +235,83 @@ Die automatischen Tests laufen gegen genau diesen Datensatz.
 
 > Das Skript hat keine Optionen und überschreibt einen vorhandenen `mock`-Datensatz
 > ohne Rückfrage.
+
+### 4.5 Eigene XAI-Ergebnisse einpflegen
+
+Typischer Fall: Ein Datensatz ist bereits eingerichtet, und es sollen Erklärungen einer
+weiteren Methode (oder eines weiteren Modells) dazukommen. Die Anwendung kennt **keine feste
+Methodenliste** — eine neue Methode braucht keine Code-Änderung, nur die richtige Ablage.
+
+**1. Verzeichnis anlegen:** `xai/<Modell>/<Methode>/<Stufe>/`
+
+- Die drei Namen erscheinen **unverändert** in der Oberfläche (Verzeichnisname = Anzeige).
+- Modell und Stufe **exakt** so schreiben wie bei den vorhandenen Daten (inkl.
+  Groß-/Kleinschreibung): `vgg16` statt `VGG16` ergäbe ein zusätzliches, zweites Modell.
+- Stufen `low`, `mid`/`middle`, `high` werden in dieser Reihenfolge sortiert, andere Namen
+  alphabetisch dahinter.
+
+**2. Dateien benennen:** `<basename>_<anhang>.<endung>`
+
+- `<basename>` = Dateiname des Originals ohne Endung.
+- `<anhang>` = der **Methodenname in Kleinbuchstaben** (Zeichen wie `-` bleiben erhalten).
+  Einzige Ausnahme: `Grad-CAM` → `gradcam`.
+- `<endung>` = `.jpg`, `.jpeg` oder `.png`, unabhängig von der Endung des Originals.
+
+| Original | Methoden-Verzeichnis | erwarteter Dateiname |
+|---|---|---|
+| `bild_001.jpg` | `Grad-CAM` | `bild_001_gradcam.jpg` |
+| `bild_001.jpg` | `LRP` | `bild_001_lrp.jpg` |
+| `bild_001.jpg` | `SmoothGrad` | `bild_001_smoothgrad.png` |
+| `bild_001.jpg` | `Integrated-Gradients` | `bild_001_integrated-gradients.png` |
+
+> **Achtung:** `build_metadata.py` nimmt eine Methode schon auf, wenn im Verzeichnis
+> **irgendeine** Bilddatei liegt. Mit falschem Anhang erscheint die Methode also im Menü, das
+> Panel zeigt dann aber „kein XAI". Solche Dateien meldet das Skript mit einer Warnung
+> (`… Dateien passen zu keinem Bild (erwartet <basename>_<anhang>.<ext>)`) samt Beispielen.
+
+**3. Inhalt der Bilder:** ein **fertig gerendertes** Bild je Original (z. B. die Heatmap
+bereits über das Original gelegt). Die Anwendung zeigt die Datei anstelle des Originals und
+legt selbst nichts übereinander. Am besten Größe und Seitenverhältnis des Originals
+beibehalten. Es müssen nicht alle Bilder abgedeckt sein — wo eine Datei fehlt, zeigt das
+Panel das Original mit dem Hinweis „kein XAI".
+
+**4. Nur bei neuem Modell oder neuer Stufe:** zusätzlich
+`inference/inference_results_<Modell>_<Stufe>.csv` ablegen (Format: Abschnitt 4.3). Ohne sie
+erscheint das Modell zwar mit seinen Erklärungen, aber ohne Vorhersage und Konfidenz — damit
+fehlen Klassifikationsfilter und Konfusionsmatrix.
+
+**5. Übernehmen:**
+
+```bash
+python tools/build_metadata.py <datensatz>
+python tools/make_thumbnails.py <datensatz>     # empfohlen, erzeugt nur die fehlenden
+```
+
+Danach die Anwendung **neu starten**. In der Ausgabe von `build_metadata.py` muss die neue
+Methode unter „XAI-Verfügbarkeit" beim richtigen Modell und der richtigen Stufe stehen, und
+es darf keine Warnung „passen zu keinem Bild" für den neuen Ordner geben.
+
+**6. Prüfen:** Panel auf das Modell und die Stufe stellen, unter „Anzeige" die neue Methode
+wählen. Steht überall „kein XAI", stimmt der Dateiname nicht (Schritt 2; die Warnung aus
+Schritt 5 nennt die betroffenen Dateien).
+
+**Beispiel** — SmoothGrad für `VGG16`/`high` zu einem vorhandenen Datensatz hinzufügen:
+
+```
+datasets/MeinDatensatz/
+└── xai/
+    └── VGG16/
+        ├── Grad-CAM/…                 # vorhanden
+        └── SmoothGrad/                # neu
+            └── high/
+                ├── bild_001_smoothgrad.png
+                └── bild_002_smoothgrad.png
+```
+
+**Grenze:** Das gilt für Methoden, die **ein Bild je Original** liefern. Konzeptbasierte
+Ausgaben mit eigener Unterstruktur werden nur für CRP und CRAFT in deren festem Format
+unterstützt (siehe [`DATA.md`](../../DATA.md), „CRP-Konzept-Struktur" und „CRAFT-Struktur");
+eine weitere Methode dieser Art braucht eine Erweiterung des Codes.
 
 ---
 
@@ -363,7 +441,7 @@ Stolperfallen stehen in [`deployment/README.md`](../../deployment/README.md) und
 | Projektdialog: „Kein Datensatz gefunden" | kein Verzeichnis unter `datasets_root` enthält eine `metadata.json` | `datasets_root` in `config.toml` prüfen, `build_metadata.py` ausführen |
 | `build_metadata.py`: „Pflicht-Quelle fehlt" | `originals/imgs/` oder `originals/all_labels.csv` fehlt | Datensatz-Layout prüfen (Abschnitt 4.2) |
 | Originale erscheinen, XAI-Bilder antworten mit **403** | XAI-Renderings sind Symlinks auf ein anderes Laufwerk | `[dev] follow_dataset_symlinks = true` in `config.toml` (typisch nach `git worktree add`: `config.toml` fehlt) |
-| Überall „kein XAI" | für die gewählte Kombination Modell/Stufe/Methode fehlen Renderings, oder die Dateinamen passen nicht zum Basisnamen | Verzeichnis `xai/<Modell>/<Methode>/<Stufe>/` prüfen; `build_metadata.py` neu laufen lassen |
+| Überall „kein XAI" | für die gewählte Kombination Modell/Stufe/Methode fehlen Renderings, oder die Dateinamen haben nicht die Form `<basename>_<anhang>` | Verzeichnis `xai/<Modell>/<Methode>/<Stufe>/` und Dateinamen prüfen (Abschnitt 4.5); `build_metadata.py` neu laufen lassen |
 | Filterwerte scheinen „zufällig" | Filter-Attribute sind gemockt (keine Handlabels) | Handlabels einbinden (Abschnitt 5) |
 | Änderungen an Daten, `featured_images.toml` o. Ä. wirken nicht | Werte werden beim Start eingelesen | Anwendung neu starten |
 | Galerie lädt beim ersten Mal sehr langsam | Thumbnails werden erst beim Aufruf erzeugt | `tools/make_thumbnails.py` vorab ausführen |

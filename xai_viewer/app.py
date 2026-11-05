@@ -13,6 +13,7 @@ Canonical names = real names (VGG16/ResNet50/ConvNeXt-T, Grad-CAM, low/mid/high)
 import io
 import json
 import os
+import re
 import secrets
 import tomllib
 from datetime import date, datetime, timedelta
@@ -28,11 +29,16 @@ from werkzeug.security import check_password_hash
 from auth import (AccountStore, RateLimiter, account_owner, accounts_path, is_guest,
                   new_guest_owner)
 from filter_options import (
+    CATEGORY_MODE_AND,
+    CATEGORY_MODES_KEY,
+    EXCLUDED_KEY,
     CLASSIFICATION_FILTER,
     CONFIDENCE_FILTER,
     DISTANCE_FILTERS,
     attribute_tokens,
+    category_mode,
     empty_filter_config,
+    excluded_options,
     filter_categories,
     image_passes_filter,
 )
@@ -42,11 +48,13 @@ import demo_seed
 import docs_render
 import legal
 from collections_store import CollectionsStore
+import data_export
 from requirements_catalog import load_requirements, text_for
 from requirements_store import RequirementsStore
 import tracking
 from tracking import TrackingStore
 from version import __product__, __version__
+from xai_naming import METHOD_SUBDIR, xai_appendix
 from thumbnails import THUMB_TAG, thumb_rel
 from thumbnails import generate as generate_thumbnail
 
@@ -478,7 +486,9 @@ def tracking_toggle():
     """
     if not TRACKING_ENABLED:
         return "", 404
-    if session.get("tracking"):
+    if session.get("study") and session.get("tracking"):
+        pass  # study mode: recording cannot be switched off; answer with the unchanged state
+    elif session.get("tracking"):
         # Record the switch-off in the track being closed, before the id is gone.
         _tracking_write([{"kind": "tracking", "value": "off"}])
         session.pop("tracking", None)
@@ -592,12 +602,7 @@ def _collection_titles(dataset: str = None) -> set:
 # class_labels) need translation – models, XAI methods, and levels are displayed as-is
 # (real names, A10–A12).
 
-# XAI filename: <basename>_<appendix>.<ext>. Appendix differs from the directory token.
-METHOD_APPENDIX = {"Grad-CAM": "gradcam"}
-
-# Methods whose per-image asset lives in a sub-folder of the level dir (not directly in it).
-# CRAFT's attribution map is xai/<Model>/CRAFT/<level>/concept_attribution_maps/<id>_craft.jpg.
-METHOD_SUBDIR = {"CRAFT": "concept_attribution_maps"}
+# XAI filename: <basename>_<appendix>.<ext>, rule shared with build_metadata.py (xai_naming).
 
 
 def _dataset_dir(name: str) -> Path:
@@ -818,7 +823,7 @@ def _xai_rel_path(img: dict, model: str, method: str, level: str, ds_dir: Path):
 
     The original's extension is tried first (fast path, matches Grad-CAM), then the
     remaining candidates – the LRP export writes .jpg even for .png originals."""
-    appendix = METHOD_APPENDIX.get(method, method.lower())
+    appendix = xai_appendix(method)
     base = f"xai/{model}/{method}/{level}"
     subdir = METHOD_SUBDIR.get(method)  # CRAFT: per-image map lives in a sub-folder
     if subdir:
@@ -1077,12 +1082,19 @@ def _filter_summary(filters: dict) -> list:
     """Compact description of the active filters for the panel header (translated)."""
     parts = []
     for key, spec in _categories().items():
+        def label(v):
+            return t(f"filter.cat.{key}.opt.{v}", default=spec["labels"].get(v, v))
+
         selected = filters.get(key, [])
-        if selected:
-            labels = [t(f"filter.cat.{key}.opt.{v}", default=spec["labels"].get(v, v))
-                      for v in selected]
+        excluded = excluded_options(filters, key)
+        if selected or excluded:
+            # The combination is spelled out: a snapshot in the report must say how the image set
+            # came about, and a comma would leave that open.
+            joiner = f" {t(f'filter.mode.{category_mode(filters, key)}_join')} "
+            terms = [joiner.join(label(v) for v in selected)] if selected else []
+            terms += [f"{t('filter.exclude.without')} {label(v)}" for v in excluded]
             parts.append(f"{t(f'filter.cat.{key}.label', default=spec['label'] or key)}: "
-                         f"{', '.join(labels)}")
+                         f"{', '.join(terms)}")
     for key, spec in DISTANCE_FILTERS.items():
         lo, hi = filters.get(key, [spec["min"], spec["max"]])
         if [lo, hi] != [spec["min"], spec["max"]]:
@@ -1135,12 +1147,17 @@ def _confidence_matches(confidence, filters: dict) -> bool:
 
 def _faceted_counts(meta: dict, model: str, level: str, filters: dict) -> dict:
     """Image count per filter option – faceted: each facet excludes its *own* selection
-    but respects all other active filters (+ distance + classification). O(images × cat.),
+    but respects all other active filters (+ distance + classification). A category in AND mode
+    keeps its own selection: there the number means "images left if this option is ticked too",
+    and ignoring the selection would advertise images that cannot remain. Exclusions always
+    apply, also in their own facet; an excluded option itself is shown with ``remaining[key]``,
+    the number of images its facet leaves (the images *without* it). O(images × cat.),
     computed only when the dialog is opened/changed – gallery rendering is not affected."""
     preds = meta["predictions"].get(model, {}).get(level, {})
     classification = filters.get(CLASSIFICATION_FILTER["key"], "")
     dataset_categories = filter_categories(meta)
     categories = {key: {} for key in dataset_categories}
+    remaining = {key: 0 for key in dataset_categories}
     cls = {"": 0, "korrekt": 0, "inkorrekt": 0}
 
     for img in meta["images"]:
@@ -1161,13 +1178,15 @@ def _faceted_counts(meta: dict, model: str, level: str, filters: dict) -> dict:
         # Category facets: classification + all other categories (own category excluded)
         if in_confidence and _classification_matches(classification, predicted, correct):
             for key in dataset_categories:
-                if not image_passes_filter(attrs, filters, skip_key=key,
+                own_facet = None if category_mode(filters, key) == CATEGORY_MODE_AND else key
+                if not image_passes_filter(attrs, filters, skip_key=own_facet,
                                            categories=dataset_categories):
                     continue
+                remaining[key] += 1
                 for v in attribute_tokens(attrs, key):
                     categories[key][v] = categories[key].get(v, 0) + 1
 
-    return {"categories": categories, "classification": cls}
+    return {"categories": categories, "remaining": remaining, "classification": cls}
 
 
 # ── modelcard / model overview ───────────────────────────────────────
@@ -1414,6 +1433,10 @@ def _build_page_data(panels: list, dataset: str) -> dict:
         "visible_panel_ids": [p["id"] for p in panels if p["visible"]],
         "single_panel_ids": [p["id"] for p in singles],
         "linked_single_panel_ids": [p["id"] for p in singles if p.get("linked")],
+        # What a quick note would be about right now (None → the bar is inactive). Only computed
+        # while the bar is on: it costs one more pass over the left panel's image list.
+        "quicknote": (_quicknote_page_data(panels, dataset)
+                      if session.get("quicknotes") else None),
     }
 
 
@@ -1721,6 +1744,7 @@ def docs_page(page):
 def _login_page(status: int = 200, **kw):
     """The login page with the context both entrances need (guest TTL, which form to blame)."""
     kw.setdefault("form", "guest")
+    kw.setdefault("announcement", legal.announcement(legal.for_lang(LEGAL, get_lang()), date.today()))
     return render_template("login.html", demo=DEMO_MODE, guest_ttl_hours=GUEST_TTL_HOURS, **kw), status
 
 
@@ -1746,6 +1770,8 @@ def login():
         form = "account" if mode == "account" else "guest"
         if not username:
             return _login_page(form=form)
+        if _is_study_name(username):
+            return _study_login(username, password, form)
         if password or ACCOUNTS.exists(username):
             # The limit guards password *guessing*, so only the password path is counted: a
             # guest login has no secret to guess, and counting it would let ordinary demo
@@ -1767,6 +1793,48 @@ def login():
             session["user"] = username
         return redirect(url_for("role_select"))
     return _login_page()
+
+
+# ── study mode ────────────────────────────────────────────────────────────────
+# Participants of a usability study log in as ``study_user_<x>`` with the shared password
+# "study" — no account has to be created per participant. Such a session starts in study mode:
+# usage tracking is armed and cannot be switched off (if the configuration allows tracking at
+# all), and the quick-notes bar is on. The password is public knowledge by design, so anybody
+# who knows the prefix can open any study account; the data is study material, not private work.
+STUDY_USER_PREFIX = "study_user_"
+STUDY_PASSWORD = "study"
+
+
+def _is_study_name(username: str) -> bool:
+    return username.strip().lower().startswith(STUDY_USER_PREFIX)
+
+
+def _study_login(username: str, password: str, form: str):
+    """Logs a study participant in (see "study mode" above). Counted by the rate limiter like
+    any password login: the password is known, but guessing the *prefix* should stay cheap to
+    notice."""
+    if not LOGIN_LIMITER.allow(request.remote_addr or "?"):
+        return _login_page(429, form=form, error=t("login.rate_limited"), username=username)
+    if password != STUDY_PASSWORD:
+        error = t("login.study_needs_password") if form == "guest" else t("login.failed")
+        return _login_page(401, form=form, error=error, username=username)
+    LOGIN_LIMITER.reset(request.remote_addr or "?")
+    name = username.strip().lower()
+    # Always the stable account key, also in demo mode: a throwaway guest sandbox would lose the
+    # participant's notes, which are exactly what the study is after.
+    session["owner"] = account_owner(name)
+    session["user"] = name
+    session["study"] = True
+    session["quicknotes"] = True
+    if TRACKING_ENABLED:
+        if not session.get("tracking"):
+            session["tracking"] = True
+            session["tracking_id"] = tracking.new_session_id()
+            _tracking_write([{"kind": "tracking", "value": "on"}])
+    else:
+        app.logger.warning("study login %s: usage tracking is not enabled in the configuration, "
+                           "so this study session is NOT recorded", name)
+    return redirect(url_for("role_select"))
 
 
 # The roles of the usage concept that the application actually implements. The others appear
@@ -2135,6 +2203,14 @@ def _filters_from_form(form) -> dict:
     filters = empty_filter_config(categories)
     for key in categories:
         filters[key] = form.getlist(f"filter_{key}")
+        if form.get(f"filtermode_{key}") == CATEGORY_MODE_AND:
+            filters[CATEGORY_MODES_KEY][key] = CATEGORY_MODE_AND
+        # An option is either ticked or excluded; the dialog never sends both, a crafted request
+        # that does gets the exclusion (the stricter reading).
+        excluded = [v for v in form.getlist(f"exclude_{key}") if v in categories[key]["options"]]
+        if excluded:
+            filters[EXCLUDED_KEY][key] = excluded
+            filters[key] = [v for v in filters[key] if v not in excluded]
     for key, spec in DISTANCE_FILTERS.items():
         try:
             lo = float(form.get(f"{key}_min", spec["min"]))
@@ -2206,12 +2282,14 @@ def panel_filter_counts(pid):
         model = panel["model"]
     if level not in meta["levels"]:
         level = panel["level"]
-    counts = _faceted_counts(meta, model, level, _filters_from_form(request.form))
+    filters = _filters_from_form(request.form)
+    counts = _faceted_counts(meta, model, level, filters)
     categories, classification, _, _ = _localized_filter_meta()
     # Both sections are refreshed regardless of the selected mode: the numbers are cheap and
     # the hidden section's OOB spans simply stay up to date (model/level drive the accuracies).
     option_accuracy = _modelcard_stats(meta, model, level, None)["option_accuracy"]
     return render_template("partials/_filter_counts.html", counts=counts,
+                           excluded=filters[EXCLUDED_KEY],
                            filter_categories=categories,
                            classification_filter=classification,
                            modelcard_accuracy=option_accuracy)
@@ -2436,7 +2514,11 @@ def _render_collections_body(notice: dict = None, workspace_changed: bool = Fals
     collection's image list unfolded: the swap replaces the <details> element, and its open
     state lives in the DOM only, so without this every action would collapse it."""
     html = render_template("partials/_collections_body.html",
-                           collections=_collection_views(), notice=notice, open_cid=open_cid)
+                           collections=_collection_views(), notice=notice, open_cid=open_cid,
+                           quicksort_ids=_quicksort_target_ids())
+    # Every dialog action can change what the navbar's A/D badge says (rename, delete, a note
+    # freezing a target elsewhere is only noticed here) → refresh it along the way.
+    html += _quicksort_badge_oob()
     if workspace_changed:
         html += _render_workspace(oob=True)
     return html
@@ -2460,7 +2542,8 @@ def collections_dialog():
     if "project" not in session:
         return "", 403
     return render_template("partials/_collections_modal.html",
-                           collections=_collection_views(), notice=None, open_cid=None)
+                           collections=_collection_views(), notice=None, open_cid=None,
+                           quicksort_ids=_quicksort_target_ids())
 
 
 @app.route("/collections/<int:cid>/rename", methods=["POST"])
@@ -2591,6 +2674,241 @@ def collection_open_panel(cid):
     _open_collection_panel(collection, load_metadata(_active_dataset()))
     return _render_collections_body(
         _notice("success", "collection.opened", title=collection["title"]), workspace_changed=True)
+
+
+# ── quick sort: keys A/D file the left panel's image into two target collections ──────────
+#
+# Built for curating a dataset image by image (e.g. picking images for a user study): A puts the
+# image shown in the leftmost panel into the "keep" collection, D into the "drop" collection, and
+# the panel steps on. An image is never in both: filing it on one side takes it out of the other.
+# Ctrl+Z undoes the last filings one by one; the client keeps that stack, the server only restores
+# the membership it is told and jumps back to the image. Targets are marked on the collections
+# themselves (``quicksort_role``), per account and dataset, so they survive logging out and follow
+# the account to another device (Entscheidung 2026-10-15). A frozen (note-referenced) collection cannot be a target: every key
+# press would otherwise leave a fresh copy behind (see the freeze rule above).
+
+QUICKSORT_SIDES = ("keep", "drop")
+
+
+def _quicksort_target_ids() -> dict:
+    """{"keep": cid|None, "drop": cid|None} as marked on the active dataset's collections."""
+    ids = {side: None for side in QUICKSORT_SIDES}
+    for collection in _collections(_active_dataset()):
+        role = collection.get("quicksort_role")
+        if role in ids and ids[role] is None:
+            ids[role] = collection["id"]
+    return ids
+
+
+def _quicksort_targets() -> dict:
+    """The usable target collections: {"keep": collection|None, "drop": ...}. A stored id whose
+    collection is gone, belongs to another dataset or is frozen counts as no target."""
+    dataset = _active_dataset()
+    targets = {}
+    for side, cid in _quicksort_target_ids().items():
+        collection = _collection(cid)
+        if (collection is None or collection.get("dataset") != dataset
+                or _collection_note_refs(cid)):
+            collection = None
+        targets[side] = collection
+    return targets
+
+
+@app.context_processor
+def quicksort_context():
+    """Targets for the navbar badge (base.html) — only inside a project, where they exist."""
+    if "project" not in session:
+        return {}
+    return {"quicksort_targets": _quicksort_targets()}
+
+
+def _quicksort_badge_oob() -> str:
+    return render_template("partials/_quicksort_badge.html", quicksort_targets=_quicksort_targets(),
+                           oob=True)
+
+
+def _quicksort_toast(kind: str, text: str, undo: dict = None) -> str:
+    """Out-of-band toast. ``undo`` (the filing just made) rides along as a data attribute; the
+    key island pushes it onto its undo stack."""
+    return render_template("partials/_quicksort_toast.html", kind=kind, text=text,
+                           undo=json.dumps(undo) if undo else None)
+
+
+def _quicksort_left_panel(panels: list):
+    """The leftmost visible panel if it shows a single image, else None (A1: gallery view,
+    model card or an unconfigured panel → the keys do nothing)."""
+    left = next((p for p in panels if p.get("visible")), None)
+    if (left is None or left.get("view") != "single" or not left.get("configured", True)
+            or left.get("mode") == MODE_MODELCARD):
+        return None
+    return left
+
+
+def _quicksort_step_targets(panels: list, panel: dict) -> list:
+    """The panels that move with <panel> — the same rule as its own step arrows (panel_step)."""
+    targets = _linked_single_panels(panels) if panel.get("linked") else []
+    if panel not in targets:
+        targets.append(panel)
+    return targets
+
+
+@app.route("/quicksort/targets", methods=["POST"])
+def quicksort_set_targets():
+    """Stores the A/D target collections chosen in the collections dialog ("" = none)."""
+    if "project" not in session:
+        return "", 403
+    chosen = {}
+    for side in QUICKSORT_SIDES:
+        cid = request.form.get(side, type=int)
+        collection = _collection(cid)
+        if cid is not None and (collection is None
+                                or collection.get("dataset") != _active_dataset()):
+            return _render_collections_body(_notice("danger", "collection.gone"))
+        if cid is not None and _collection_note_refs(cid):
+            return _render_collections_body(
+                _notice("danger", "quicksort.target_frozen", title=collection["title"]))
+        chosen[side] = cid
+    if chosen["keep"] is not None and chosen["keep"] == chosen["drop"]:
+        return _render_collections_body(_notice("danger", "quicksort.targets_same"))
+    COLLECTIONS_STORE.set_quicksort_roles(_owner(), _active_dataset(), chosen)
+    return _render_collections_body(_notice("success", "quicksort.targets_saved"))
+
+
+@app.route("/quicksort/off", methods=["POST"])
+def quicksort_off():
+    """Switches quick sort off for the active dataset (both targets cleared). Called from the
+    navbar badge's × (answers with the now empty badge) or from the dialog (answers with its
+    body, which refreshes the badge out-of-band)."""
+    if "project" not in session:
+        return "", 403
+    COLLECTIONS_STORE.set_quicksort_roles(_owner(), _active_dataset(), {"keep": None, "drop": None})
+    if request.headers.get("HX-Target") == "quicksort-badge":
+        return render_template("partials/_quicksort_badge.html",
+                               quicksort_targets=_quicksort_targets(), oob=False)
+    return _render_collections_body(_notice("success", "quicksort.switched_off"))
+
+
+@app.route("/quicksort/new-collection", methods=["POST"])
+def quicksort_new_collection():
+    """Creates an empty collection — the natural starting point for a keep/drop target."""
+    if "project" not in session:
+        return "", 403
+    title = request.form.get("title", "").strip()
+    if not title:
+        return _render_collections_body(_notice("danger", "collection.title_required"))
+    if _demo_limit_reached("collections"):
+        return _render_collections_body(_notice("danger", "quicksort.limit_reached"))
+    collection = COLLECTIONS_STORE.create(
+        title=title, image_ids=[], owner=_owner(), user=session.get("user", "?"),
+        project=session.get("project", {}).get("name", "?"), dataset=_active_dataset(),
+        origin={"kind": "manual"})
+    return _render_collections_body(_notice("success", "quicksort.created", title=collection["title"]))
+
+
+@app.route("/quicksort/<side>", methods=["POST"])
+def quicksort_file(side):
+    """Files the left panel's current image under <side> (keep|drop) and steps that panel on.
+
+    Always answers 200 with the workspace plus a toast: htmx does not swap error responses, and
+    the toast is how the user learns why nothing happened."""
+    if "project" not in session:
+        return "", 403
+    if side not in QUICKSORT_SIDES:
+        return "", 404
+    other = "drop" if side == "keep" else "keep"
+    targets = _quicksort_targets()
+    target = targets[side]
+    if target is None:
+        return _render_workspace() + _quicksort_toast("warning", t(f"quicksort.no_target_{side}"))
+    panels = _get_panels()
+    panel = _quicksort_left_panel(panels)
+    if panel is None:
+        return _render_workspace() + _quicksort_toast("warning", t("quicksort.no_single_view"))
+    dataset = _active_dataset()
+    meta = load_metadata(dataset)
+    images = _panel_images(panel, panels, dataset, meta)
+    if not images:
+        return _render_workspace() + _quicksort_toast("warning", t("quicksort.no_single_view"))
+    image_id = images[_clamp_index(panel.get("index", 0), len(images))]["id"]
+
+    # Membership before the change, for undo: exactly what has to be restored.
+    before = {s: (image_id in c["image_ids"]) if c else None for s, c in targets.items()}
+    if before[side] and not before[other]:
+        text, undo = t(f"quicksort.already_{side}", image=image_id, title=target["title"]), None
+    else:
+        COLLECTIONS_STORE.add_images(target["id"], _owner(), [image_id])
+        moved = bool(before[other])
+        if moved:
+            COLLECTIONS_STORE.remove_images(targets[other]["id"], _owner(), [image_id])
+        key = f"quicksort.moved_{side}" if moved else f"quicksort.filed_{side}"
+        text = t(key, image=image_id, title=target["title"])
+        undo = {"image_id": image_id,
+                "restore": [{"id": c["id"], "member": before[s]}
+                            for s, c in targets.items() if c is not None]}
+
+    _step_panels(_quicksort_step_targets(panels, panel), panels, 1, dataset, meta)
+    _save_panels(panels)
+    return _render_workspace() + _quicksort_toast("success" if undo else "info", text, undo)
+
+
+@app.route("/quicksort/undo", methods=["POST"])
+def quicksort_undo():
+    """Reverts one filing: puts each listed collection's membership of the image back to what
+    it was and jumps the left panel back to that image, so it can be decided again.
+
+    Form: image_id, restore = JSON list of {"id", "member"}. No image_id → "nothing to undo"."""
+    if "project" not in session:
+        return "", 403
+    image_id = request.form.get("image_id", "")
+    if not image_id:
+        return _render_workspace() + _quicksort_toast("info", t("quicksort.nothing_to_undo"))
+    try:
+        restore = json.loads(request.form.get("restore", "[]"))
+        restore = [(int(r["id"]), bool(r["member"])) for r in restore]
+    except (ValueError, TypeError, KeyError):
+        return "", 400
+    for cid, _member in restore:
+        collection = _collection(cid)
+        if collection is None:
+            return _render_workspace() + _quicksort_toast("danger", t("quicksort.undo_gone"))
+        if _collection_note_refs(cid):
+            return _render_workspace() + _quicksort_toast(
+                "danger", t("quicksort.target_frozen", title=collection["title"]))
+    for cid, member in restore:
+        if member:
+            COLLECTIONS_STORE.add_images(cid, _owner(), [image_id])
+        else:
+            COLLECTIONS_STORE.remove_images(cid, _owner(), [image_id])
+
+    panels = _get_panels()
+    panel = _quicksort_left_panel(panels)
+    if panel is not None:
+        dataset = _active_dataset()
+        meta = load_metadata(dataset)
+        ids = [img["id"] for img in _panel_images(panel, panels, dataset, meta)]
+        if image_id in ids:
+            delta = ids.index(image_id) - _clamp_index(panel.get("index", 0), len(ids))
+            _step_panels(_quicksort_step_targets(panels, panel), panels, delta, dataset, meta)
+            _save_panels(panels)
+    return _render_workspace() + _quicksort_toast("info", t("quicksort.undone", image=image_id))
+
+
+
+# ── download of the own working data ──────────────────────────────────────────
+
+@app.route("/export/my-data")
+def export_my_data():
+    """All of this owner's notes and collections (every dataset) plus private requirements
+    catalogs as one JSON download — portable to another account, see data_export.py."""
+    if "project" not in session:
+        return "", 403
+    document = data_export.build_export(NOTES_STORE, COLLECTIONS_STORE, REQUIREMENTS_STORE,
+                                        _owner(), session.get("user", "?"), __version__)
+    name = re.sub(r"[^A-Za-z0-9_-]+", "-", session.get("user", "export")).strip("-") or "export"
+    filename = f"xaiminer-{name}-{datetime.now():%Y-%m-%d}.json"
+    return Response(json.dumps(document, ensure_ascii=False, indent=2),
+                    mimetype="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 # ── notes ──────────────────────────────────────────────────────────────
@@ -3050,6 +3368,105 @@ def _resolve_note_title(form, is_report_entry: bool, status: dict):
     return None
 
 
+# ── quick notes ───────────────────────────────────────────────────────────────
+# A text field below the panels that turns into a note in one keystroke (Ctrl+S), for the study
+# (see "study mode"). It only works while the LEFT panel shows a single image — the same panel
+# the quick-sort keys act on — and the note is an ordinary one afterwards (editable/deletable in
+# the notes dock). Title: QuickNote-IMG#<position of the image in the dataset, 1-based, padded>.
+QUICKNOTE_TITLE_PREFIX = "QuickNote-IMG#"
+
+
+def _quicknote_target(panels: list, dataset: str, meta: dict):
+    """(panel, image, title) the quick note would be about, or None if the left panel shows no
+    single image."""
+    panel = _quicksort_left_panel(panels)
+    if panel is None:
+        return None
+    images = _panel_images(panel, panels, dataset, meta)
+    if not images:
+        return None
+    image = images[_clamp_index(panel.get("index", 0), len(images))]
+    all_ids = [img["id"] for img in meta["images"]]
+    try:
+        position = all_ids.index(image["id"]) + 1
+    except ValueError:
+        return None
+    width = len(str(len(all_ids)))
+    return panel, image, f"{QUICKNOTE_TITLE_PREFIX}{position:0{width}d}"
+
+
+def _quicknote_page_data(panels: list, dataset: str):
+    target = _quicknote_target(panels, dataset, load_metadata(dataset))
+    if target is None:
+        return None
+    panel, image, title = target
+    # The key changes whenever the note would be about something else: the island clears a saved
+    # text and forgets the note it updates when it does.
+    return {"title": title, "key": f"{image['id']}|{panel['model']}|{panel['level']}|"
+                                  f"{panel['xai_method']}"}
+
+
+def _quicknote_status(kind: str, text: str, note_id=None) -> str:
+    return render_template("partials/_quicknote_status.html", kind=kind, text=text,
+                           note_id=note_id)
+
+
+@app.route("/quicknotes/toggle", methods=["POST"])
+def quicknotes_toggle():
+    """Switch in the notes dock: shows/hides the bar (out of band) and re-renders the dock."""
+    if "project" not in session:
+        return "", 403
+    session["quicknotes"] = not session.get("quicknotes")
+    return (_render_notes_panel()
+            + render_template("partials/_quicknote_bar.html", oob=True)
+            + _render_workspace(oob=True))
+
+
+@app.route("/quicknote", methods=["POST"])
+def quicknote_save():
+    """Creates the quick note — or, with ``note_id`` of a quick note saved for the same image
+    before, updates its text (the field keeps its text after saving, so saving again must not
+    produce a second note). Answers with the status line for the bar; always 200, because htmx
+    does not swap error responses and the status line is how the user learns what happened."""
+    if "project" not in session:
+        return "", 403
+    text = request.form.get("text", "").strip()
+    if not text:
+        return _quicknote_status("warning", t("quicknote.empty"))
+    dataset = _active_dataset()
+    meta = load_metadata(dataset)
+    panels = _get_panels()
+    target = _quicknote_target(panels, dataset, meta)
+    if target is None:
+        return _quicknote_status("warning", t("quicknote.no_single_view"))
+    panel, image, title = target
+    try:
+        note_id = int(request.form.get("note_id", ""))
+    except ValueError:
+        note_id = None
+    note = NOTES_STORE.get(note_id, _owner()) if note_id is not None else None
+    if note is not None and note.get("title") == title:
+        NOTES_STORE.update(note_id, _owner(), text=text)
+        return _quicknote_status("success", t("quicknote.updated", title=title), note_id)
+    if _demo_limit_reached("notes"):
+        return _quicknote_status("warning", t("demo.note_limit", n=DEMO_MAX_NOTES))
+    refpoints = [{"type": "image", "image_id": image["id"], "xai_method": panel["xai_method"],
+                  "model": panel["model"], "level": panel["level"]},
+                 _workspace_snapshot(panels, dataset, meta)]
+    created = NOTES_STORE.create(
+        title=title,
+        text=text,
+        refpoints=refpoints,
+        owner=_owner(),
+        user=session.get("user", "?"),
+        project=session.get("project", {}).get("name", "?"),
+        dataset=dataset,
+        include_in_report=False,
+        requirement_status={},
+    )
+    return _quicknote_status("success", t("quicknote.saved", title=title), created["id"])
+
+
 @app.route("/notes/new", methods=["GET"])
 def note_new():
     if "project" not in session:
@@ -3333,5 +3750,58 @@ def audit_report_pdf():
 
 # ── dev entry point ───────────────────────────────────────────────────────────
 
+# Every environment variable the app reads, for `python app.py --help`: (name, config.toml
+# equivalent or "", meaning). The environment always wins over config.toml. Kept complete by a
+# test that scans the sources for XAI_* names.
+ENV_VARS = [
+    ("XAI_DATASETS_ROOT", "[paths] datasets_root", "directory holding the datasets"),
+    ("XAI_DEFAULT_DATASET", "[dataset] default", "dataset preselected in the project dialog"),
+    ("XAI_DEMO_MODE", "[demo] enabled", "1/0: public demo (guest sandboxes, limits)"),
+    ("XAI_GUEST_TTL_HOURS", "", "guest sandboxes are deleted after N idle hours (48)"),
+    ("XAI_TRACKING", "[tracking] enabled", "1/0: allow usability tracking (Ctrl+Alt+Shift+T)"),
+    ("XAI_TRACKING_DIR", "[paths] tracking_dir", "where tracking records are written"),
+    ("XAI_ACCOUNTS_FILE", "[paths] accounts_file", "accounts file (default accounts.toml)"),
+    ("XAI_LEGAL_FILE", "[paths] legal_file", "imprint/privacy texts (default legal.toml)"),
+    ("XAI_SECRET_KEY", "", "secret signing the session cookies (set it on any public server)"),
+    ("XAI_AUTH_USER", "", "HTTP Basic-Auth user in front of everything (with ..._HASH)"),
+    ("XAI_AUTH_PASSWORD_HASH", "", "werkzeug password hash for XAI_AUTH_USER"),
+    ("XAI_COOKIE_SECURE", "", "1: session cookie only over HTTPS"),
+    ("XAI_ALLOWED_ORIGINS", "", "comma-separated extra origins for the CSRF origin check"),
+]
+
+
+def _env_help() -> str:
+    """Epilog of `python app.py --help`: the environment variables and whether each is set."""
+    lines = ["environment variables (override config.toml); 'set' = present in this shell:",
+             f"  {'name':<24} {'set':<4} meaning"]
+    for name, cfg, meaning in ENV_VARS:
+        state = "set" if os.environ.get(name) else "-"
+        lines.append(f"  {name:<24} {state:<4} {meaning}")
+        if cfg:
+            lines.append(f"  {'':<24} {'':<4} config.toml: {cfg}")
+    lines += ["",
+              "examples:",
+              "  python app.py --port 5001",
+              "  XAI_DEMO_MODE=1 XAI_TRACKING=1 python app.py",
+              "",
+              "Production runs under gunicorn (see BETRIEB.md / deployment/), not this server."]
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Local development only: `python app.py [--port N]`. Debug mode restarts the server when a
+    # Python module changes and re-reads templates on every request. The TOML files below are
+    # read once at import, so the reloader is told to watch them too — otherwise an edited UI
+    # string or config value would silently need a manual restart. (Missing files are ignored.)
+    # Deliberately no --host: debug mode exposes the Werkzeug debugger, it stays on localhost.
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description=f"{__product__} development server (debug mode, auto-reload)",
+        epilog=_env_help(), formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--port", type=int, default=5000, help="port to listen on (default 5000)")
+    args = parser.parse_args()
+    watched = list((BASE_DIR / "i18n").glob("*.toml"))
+    watched += [BASE_DIR / "config.toml", FEATURED_IMAGES_PATH, LEGAL_PATH, REQUIREMENTS_MASTER_PATH]
+    app.run(debug=True, port=args.port,
+            extra_files=[str(p) for p in watched if p.exists()])

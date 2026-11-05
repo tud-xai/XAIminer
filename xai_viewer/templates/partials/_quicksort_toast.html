@@ -1,0 +1,6 @@
+{# Out-of-band toast of the quick-sort keys (A/D/Ctrl+Z). Replaces the inner slot in base.html whole, so a new toast simply overwrites the previous one. Showing and hiding (3 s) toggles the wrapper around it and is done by the key island in base.html; data-undo carries the filing just made for its undo stack. #}
+<div id="quicksort-toast" hx-swap-oob="true"{% if undo %} data-undo="{{ undo }}"{% endif %}>
+  <div class="alert alert-{{ kind }} py-2 px-3 mb-0 shadow small">
+    {{ text }}{% if undo %} <span class="text-muted">— {{ t('quicksort.undo_hint') }}</span>{% endif %}
+  </div>
+</div>

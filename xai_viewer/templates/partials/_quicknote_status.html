@@ -1,0 +1,3 @@
+{# Status line of the quick-notes bar, answer of POST /quicknote. data-note-id tells the island
+   which note a further save of the same text should update instead of creating a second one. #}
+<span class="text-{{ kind }}-emphasis"{% if note_id %} data-note-id="{{ note_id }}"{% endif %}>{{ text }}</span>

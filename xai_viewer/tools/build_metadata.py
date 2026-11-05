@@ -46,6 +46,7 @@ if str(XAI_DIR) not in sys.path:
 
 from filter_options import DISTANCE_FILTERS, FILTER_CATEGORIES        # noqa: E402
 from labeling_store import STORE_NAME, parse_categories, store_path   # noqa: E402
+from xai_naming import METHOD_SUBDIR, xai_appendix                   # noqa: E402
 
 DEFAULT_DATASETS_ROOT = XAI_DIR.parent.parent / "datasets"
 
@@ -94,7 +95,10 @@ MODEL_META_STR_FIELDS = ("trained_at", "algorithm", "train_dataset", "test_datas
 
 # CRAFT: per-image attribution maps live in this sub-folder of the level dir (the level dir
 # itself has no direct images). Its presence is the availability signal for CRAFT. See DATA.md.
-CRAFT_MAPS_SUBDIR = "concept_attribution_maps"
+CRAFT_MAPS_SUBDIR = METHOD_SUBDIR["CRAFT"]
+
+# How many misnamed XAI files a warning names as examples.
+UNMATCHED_EXAMPLES = 3
 # CRAFT: GLOBAL concept prototypes (concept<N>.<ext>) shared across all images of a model/level.
 CRAFT_CONCEPTS_SUBDIR = "concepts"
 CRAFT_CONCEPT_RE = re.compile(r"^concept(\d+)\.", re.IGNORECASE)
@@ -203,6 +207,38 @@ def scan_xai_availability(xai_dir: Path) -> dict:
         if methods:
             availability[model_dir.name] = methods
     return availability
+
+
+def unmatched_xai_files(xai_dir: Path, availability: dict, basenames) -> list:
+    """XAI renderings the app would never display: ``[(folder, expected, total, [names])]``.
+
+    The availability scan counts *any* image in a level folder, but the app resolves exactly
+    ``<basename>_<appendix>.<ext>`` (xai_naming). A file whose name fits no original therefore
+    lets the method appear in the menu while the panel shows "kein XAI". CRP has no per-image
+    files of this form (its heatmaps are named by the concept manifest) and is not checked.
+    """
+    basenames = set(basenames)
+    problems = []
+    for model, methods in availability.items():
+        for method, levels in methods.items():
+            if method == "CRP":
+                continue
+            appendix = xai_appendix(method)
+            suffix = f"_{appendix}"
+            for level in levels:
+                folder = xai_dir / model / method / level
+                if method in METHOD_SUBDIR:
+                    folder = folder / METHOD_SUBDIR[method]
+                if not folder.is_dir():  # e.g. CRAFT found via its concepts.csv only
+                    continue
+                files = [f for f in folder.iterdir() if f.is_file()
+                         and f.suffix.lower() in IMAGE_SUFFIXES and f.name not in IGNORE_NAMES]
+                bad = sorted(f.name for f in files
+                             if not (f.stem.endswith(suffix) and f.stem[:-len(suffix)] in basenames))
+                if bad:
+                    rel = folder.relative_to(xai_dir.parent).as_posix()
+                    problems.append((rel, f"<basename>{suffix}.<ext>", len(files), bad))
+    return problems
 
 
 def read_inference(inference_dir: Path, model: str, level: str, true_class: dict) -> dict:
@@ -683,6 +719,10 @@ def build(dataset_dir: Path, labels_path: Path = None) -> dict:
 
     true_class_map = {img["id"]: img["true_class"] for img in images}
     xai_availability = scan_xai_availability(xai_dir)
+    for folder, expected, total, bad in unmatched_xai_files(xai_dir, xai_availability, images_files):
+        examples = ", ".join(bad[:UNMATCHED_EXAMPLES]) + (", …" if len(bad) > UNMATCHED_EXAMPLES else "")
+        warn(f"{folder}: {len(bad)} von {total} Dateien passen zu keinem Bild "
+             f"(erwartet {expected}) → in der App „kein XAI“: {examples}")
 
     # Derive models/levels from the XAI availability; read their predictions.
     models = sorted(xai_availability)

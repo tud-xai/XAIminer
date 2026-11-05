@@ -149,14 +149,43 @@
         <div class="row g-3">
           {% for key, spec in filter_categories.items() %}
             <div class="col-md-3">
-              <div class="fw-bold mb-1">{{ spec.label }}</div>
+              {% set mode = panel.filters.get('category_modes', {}).get(key, 'or') %}
+              <div class="filter-cat-head">
+                <span class="fw-bold" title="{{ spec.label }}">{{ spec.label }}</span>
+                <div class="filter-mode" role="radiogroup" aria-label="{{ t('filter.mode.group') }}: {{ spec.label }}">
+                  {% for option, region in [('or', 'M11 3.127A6 6 0 1 0 11 12.873A6 6 0 1 0 11 3.127Z'),
+                                            ('and', 'M11 3.127A6 6 0 0 1 11 12.873A6 6 0 0 1 11 3.127Z')] %}
+                    <input type="radio" name="filtermode_{{ key }}" value="{{ option }}"
+                           id="fm-{{ key }}-{{ option }}" {{ 'checked' if mode == option }}>
+                    <label for="fm-{{ key }}-{{ option }}" title="{{ t('filter.mode.' ~ option ~ '_title') }}">
+                      {# Arcs only, no clipPath: ids would collide across the four categories. #}
+                      <svg class="venn" width="32" height="23" viewBox="0 0 22 16" aria-hidden="true">
+                        <path class="venn-region" d="{{ region }}"/>
+                        <circle class="venn-ring" cx="7.5" cy="8" r="6"/>
+                        <circle class="venn-ring" cx="14.5" cy="8" r="6"/>
+                      </svg>
+                      <span class="visually-hidden">{{ t('filter.mode.' ~ option ~ '_title') }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+              {% set excluded = panel.filters.get('excluded', {}).get(key, []) %}
               {% for value, label in spec.options.items() %}
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="filter_{{ key }}"
+                {# Three states, cycled by the tri-state island below: neutral, ticked (the checkbox #}
+                {# is submitted) and excluded (shown as an indeterminate checkbox; the hidden twin is #}
+                {# submitted instead). An excluded option counts the images left without it. #}
+                {% set is_excluded = value in excluded %}
+                <div class="form-check" title="{{ t('filter.exclude.title') }}">
+                  <input class="form-check-input filter-tri" type="checkbox" name="filter_{{ key }}"
                          value="{{ value }}" id="f-{{ key }}-{{ value }}"
-                         {{ 'checked' if value in panel.filters.get(key, []) }}>
+                         {{ 'checked' if value in panel.filters.get(key, []) and not is_excluded }}
+                         {{ 'data-excluded' if is_excluded }}>
+                  <input type="hidden" name="exclude_{{ key }}" value="{{ value }}"
+                         {{ '' if is_excluded else 'disabled' }}>
                   <label class="form-check-label" for="f-{{ key }}-{{ value }}">
-                    {{ label }} <span class="text-muted small" id="cnt-{{ key }}-{{ value }}">({{ filter_counts.categories[key].get(value, 0) }})</span>
+                    <span class="filter-opt-label">{{ label }}</span>
+                    <span class="visually-hidden filter-excl-state">({{ t('filter.exclude.state') }})</span>
+                    <span class="text-muted small" id="cnt-{{ key }}-{{ value }}">({{ filter_counts.remaining[key] if is_excluded else filter_counts.categories[key].get(value, 0) }})</span>
                   </label>
                 </div>
               {% endfor %}
@@ -296,6 +325,31 @@
     }
     xaiSelect.addEventListener("change", syncMode);
     syncMode();
+  })();
+
+  // Tri-state category options: neutral → ticked → excluded → neutral. "Excluded" is an
+  // unchecked checkbox in the indeterminate state (style.css draws a cross), and its hidden twin
+  // `exclude_<key>` carries the value; an indeterminate checkbox itself is never submitted.
+  // The state is set explicitly on every click, overriding the browser's own toggle; a change
+  // event is sent in any case (the step excluded → neutral changes no checkedness), the modal
+  // body debounces it into one count refresh.
+  (function () {
+    function twin(box) { return box.nextElementSibling; }
+    function set(box, state) {
+      box.checked = state === "in";
+      box.indeterminate = state === "ex";
+      twin(box).disabled = state !== "ex";
+    }
+    document.querySelectorAll("#filter-section .filter-tri").forEach(function (box) {
+      if (box.hasAttribute("data-excluded")) set(box, "ex");
+      box.addEventListener("click", function () {
+        // The browser has already flipped `checked`, but `indeterminate` is still the old state
+        // (clicking clears it only after listeners on some engines) — so read the twin.
+        const was = !twin(box).disabled ? "ex" : (box.checked ? "neutral" : "in");
+        set(box, was === "neutral" ? "in" : (was === "in" ? "ex" : "neutral"));
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
   })();
 
   // Confidence range: greyed out (and therefore not submitted) while the checkbox is off, so an

@@ -1,4 +1,5 @@
-"""Operator-specific legal texts: imprint, the operator part of the privacy policy, contact link.
+"""Operator-specific legal texts: imprint, the operator part of the privacy policy, contact link
+(plus an optional announcement on the login page — also the operator's, not the application's).
 
 Whoever runs an instance answers for its imprint and privacy policy, so these texts are NOT part
 of the i18n catalogues — those describe the *application* and are the same for every instance.
@@ -16,6 +17,7 @@ nothing is configured, and the contact links disappear. Deliberately free of Fla
 
 import re
 import tomllib
+from datetime import date
 from pathlib import Path
 
 # "[to be filled in]" — a value the operator has not replaced yet. The pages carry a draft notice
@@ -42,6 +44,20 @@ def for_lang(legal: dict, lang: str, fallback: str = "de") -> dict:
     if fallback in legal:
         return legal[fallback]
     return next(iter(legal.values()), {})
+
+
+def announcement(section: dict, today: date) -> dict | None:
+    """The login page's ``announcement`` (e.g. an upcoming event) while it is current, else None.
+
+    ``show_until`` (a TOML date, inclusive) retires it on its own, so a past event does not linger
+    on the start page until somebody remembers to delete it."""
+    item = section.get("announcement")
+    if not item or not item.get("title"):
+        return None
+    until = item.get("show_until")
+    if isinstance(until, date) and today > until:
+        return None
+    return item
 
 
 def placeholders(value) -> list:

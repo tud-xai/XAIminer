@@ -1,0 +1,23 @@
+{# Quick-notes bar below the panels (app.py, "quick notes"). Lives outside #workspace so a workspace
+   swap never eats what is being typed; the island in workspace.html enables it while the left
+   panel shows a single image (page data "quicknote") and saves with Ctrl+S or the button.
+   The class "active" also caps the single-view image size (style.css), so the panels leave room
+   for the bar. Re-rendered out of band by the switch in the notes dock (oob=True). #}
+<div id="quicknote-bar" class="quicknote-bar{{ ' active' if session.quicknotes }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if session.quicknotes %}
+    <div class="d-flex gap-2 align-items-stretch">
+      <textarea id="quicknote-text" class="form-control form-control-sm" rows="3"
+                placeholder="{{ t('quicknote.placeholder') }}" aria-label="{{ t('quicknote.placeholder') }}"
+                disabled></textarea>
+      <button type="button" id="quicknote-save" class="btn btn-sm btn-success text-nowrap" disabled
+              title="{{ t('quicknote.save_title') }}">
+        <i class="bi bi-floppy"></i> {{ t('quicknote.save') }}
+      </button>
+    </div>
+    <div class="small mt-1 d-flex flex-wrap gap-3">
+      <span id="quicknote-target" class="text-muted" data-inactive="{{ t('quicknote.inactive') }}"
+            data-prefix="{{ t('quicknote.target') }}"></span>
+      <span id="quicknote-status"></span>
+    </div>
+  {% endif %}
+</div>

@@ -16,6 +16,10 @@
       </div>
 
       <div class="modal-footer py-2">
+        <a class="btn btn-outline-secondary me-auto" href="/export/my-data" download
+           title="{{ t('export.download_title') }}">
+          <i class="bi bi-download"></i> {{ t('export.download') }}
+        </a>
         <button type="button" class="btn btn-secondary"
                 onclick="document.getElementById('modal-container').innerHTML = ''">
           {{ t('common.close') }}

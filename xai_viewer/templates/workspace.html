@@ -3,6 +3,141 @@
 
 {% block content %}
 {{ workspace_html | safe }}
+
+{% include "partials/_quicknote_bar.html" %}
+<script>
+  // Quick-notes island (bar above, app.py "quick notes"). Outside #workspace and never swapped by
+  // a workspace response; the bar itself may be re-rendered by the dock switch, so every listener
+  // is delegated and every element looked up when needed.
+  //
+  // State: the note a save updates (noteId) and the text last saved (savedText). Both belong to
+  // one target (page data quicknote.key = image + panel variant): when the target changes, the
+  // note is forgotten, and a text that was saved unchanged is cleared. Unsaved text is never
+  // thrown away — it stays and would become a note about the new image.
+  (function () {
+    if (window.__xaiQuickNote) return;
+    var state = window.__xaiQuickNote = { key: null, noteId: null, savedText: "" };
+
+    function el(id) { return document.getElementById(id); }
+
+    function target() {
+      var pd = el("data-page");
+      if (!pd) return null;
+      try { return JSON.parse(pd.textContent).quicknote || null; } catch (_) { return null; }
+    }
+
+    function sync() {
+      var text = el("quicknote-text"), btn = el("quicknote-save"), label = el("quicknote-target");
+      if (!text || !btn || !label) return;
+      var qn = target();
+      var key = qn ? qn.key : null;
+      if (key !== state.key) {
+        if (text.value.trim() === state.savedText) text.value = "";
+        state.noteId = null;
+        state.savedText = "";
+        var status = el("quicknote-status");
+        if (status) status.innerHTML = "";
+        state.key = key;
+      }
+      text.disabled = btn.disabled = !qn;
+      label.textContent = qn ? label.dataset.prefix + " " + qn.title : label.dataset.inactive;
+    }
+
+    function refreshDock() {
+      var dock = el("notes-dock");
+      if (!dock || dock.classList.contains("d-none")) return;
+      if (document.querySelector("#notes-content form")) return;   // never clobber an open form
+      htmx.ajax("GET", "/notes", { target: "#notes-content", swap: "innerHTML" });
+    }
+
+    function save() {
+      var text = el("quicknote-text"), btn = el("quicknote-save");
+      if (!text || !btn || btn.disabled) return;
+      var value = text.value.trim();
+      if (!value) return;
+      var req = htmx.ajax("POST", "/quicknote", {
+        target: "#quicknote-status", swap: "innerHTML",
+        values: { text: value, note_id: state.noteId == null ? "" : state.noteId },
+      });
+      if (!req || !req.then) return;
+      req.then(function () {
+        var ok = document.querySelector("#quicknote-status [data-note-id]");
+        if (!ok) return;
+        state.noteId = ok.dataset.noteId;
+        state.savedText = value;
+        refreshDock();
+      });
+    }
+
+    document.addEventListener("keydown", function (e) {
+      if (!e.target || e.target.id !== "quicknote-text") return;
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key || "").toLowerCase() === "s") {
+        e.preventDefault();   // the browser's "save page" is never what is meant here
+        save();
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("#quicknote-save")) save();
+    });
+    document.body.addEventListener("htmx:afterSettle", sync);
+    sync();
+  })();
+</script>
+
+{# Large view of a single-view image. Outside #workspace on purpose: HTMX replaces that element #}
+{# wholesale, which would tear an open dialog out of the page. While it is open the workspace #}
+{# shortcuts (arrows, A/D, Ctrl+Z, n) rest — it is for looking only; the islands in base.html #}
+{# check `#image-zoom.open`. Escape closes it natively. #}
+<dialog id="image-zoom" aria-label="{{ t('single.zoom_close') }}">
+  <button type="button" class="btn-close btn-close-white" id="image-zoom-close"
+          aria-label="{{ t('single.zoom_close') }}" title="{{ t('single.zoom_close') }}"></button>
+  <img alt="">
+  <div class="image-zoom-caption"><span class="badge"></span> <span class="image-zoom-text"></span></div>
+</dialog>
+<script>
+  // Island: the dialog lives outside #workspace and is never swapped; the guard keeps a second
+  // evaluation from wiring the listeners twice.
+  (function () {
+    var dlg = document.getElementById("image-zoom");
+    if (!dlg || dlg.dataset.wired) return;
+    dlg.dataset.wired = "1";
+    var img = dlg.querySelector("img");
+    var badge = dlg.querySelector(".badge");
+    var text = dlg.querySelector(".image-zoom-text");
+
+    // Pixelated only when the image is actually enlarged (in device pixels): the real
+    // resolution of a heatmap stays visible, while a downscaled large image is not stair-stepped.
+    function fit() {
+      if (!dlg.open || !img.naturalWidth) return;
+      var r = img.getBoundingClientRect();
+      var scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight)
+                  * (window.devicePixelRatio || 1);
+      img.classList.toggle("image-zoom-upscaled", scale > 1);
+    }
+    img.addEventListener("load", fit);
+    window.addEventListener("resize", fit);
+
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest) return;
+      if (dlg.open) {                       // anywhere in the large view closes it
+        if (e.target.closest("#image-zoom")) dlg.close();
+        return;
+      }
+      var src = e.target.closest(".panel-single-fig img");
+      if (!src) return;
+      var fig = src.closest(".panel-single-fig");
+      var correct = fig.dataset.zoomCorrect === "1";
+      img.classList.remove("image-zoom-upscaled");
+      img.alt = src.alt;
+      img.src = src.currentSrc || src.src;
+      badge.className = "badge " + (correct ? "text-bg-success" : "text-bg-danger");
+      badge.textContent = correct ? "✓" : "✗";
+      text.textContent = fig.dataset.zoomCaption || "";
+      dlg.showModal();
+      fit();                                // cached image: load may already have fired
+    });
+  })();
+</script>
 {% endblock %}
 
 {% block scripts %}

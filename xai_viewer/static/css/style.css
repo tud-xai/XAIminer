@@ -104,6 +104,44 @@ html {
   min-width: 0;
 }
 
+/* Panel header: title + action buttons. The buttons alone need about 12rem; four panels next
+   to the open notes dock leave less than that at 1280 px, and an unwrappable row then spilled
+   into the neighbour panel and widened the page. Now the title keeps at least 5rem on the first
+   line, otherwise the action group moves to a second line (right-aligned) and may itself wrap. */
+.panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  container-type: inline-size;
+}
+
+.panel-header-title {
+  flex: 1 1 5rem;
+  min-width: 0;
+}
+
+.panel-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem 0.5rem;
+  margin-left: auto;
+}
+
+/* Narrow cards: tighter buttons, so the five of them still fit one line under the title.
+   The container is .panel-header (above), not the card: the quick-notes width rule (`100cqi`,
+   further down) must keep resolving against .panel-row. */
+@container (max-width: 15rem) {
+  .panel-header-actions {
+    gap: 0.25rem;
+  }
+
+  .panel-header-actions .btn {
+    padding-inline: 0.3rem;
+  }
+}
+
 /* Alternative: fixed panel width + horizontal scrolling.
    `scroll` instead of `auto`, plus explicit scrollbar styling: the platform's overlay
    scrollbars fade out after a moment, which hides both the handle one wants to grab and the
@@ -230,6 +268,83 @@ table.mc-matrix td.mc-data-cell {
   object-fit: contain;
   border: 2px solid transparent;
   border-radius: 0.25rem;
+}
+
+.panel-single-fig img {
+  cursor: zoom-in;
+}
+
+/* Quick-notes mode (bar below the panels, _quicknote_bar.html): the single-view image is never
+   wider than it would be with four panels side by side, so its size does not depend on how many
+   panels are open, and with one or two panels the bar still fits below without scrolling.
+   100cqi = width of the panel row; 3 gaps of 0.75rem; per panel the card body padding (2 × 0.5rem)
+   and the card border (2 × 1px). */
+html:has(#quicknote-bar.active) .panel-row {
+  container-type: inline-size;
+}
+
+html:has(#quicknote-bar.active) .panel-single-fig img {
+  max-width: calc((100cqi - 2.25rem) / 4 - 1rem - 2px);
+}
+
+.quicknote-bar.active {
+  margin-top: 0.75rem;
+}
+
+/* Large view of a single-view image (workspace.html): the whole viewport, aspect ratio kept */
+#image-zoom {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #000;
+  cursor: zoom-out;
+  overflow: hidden;   /* UA default "auto" shows a needless scrollbar at exactly 100vw */
+}
+
+/* The page behind the large view must not scroll along, and the reserved scrollbar gutter
+   (see top of file) would remain as a strip beside the black view. The page is fully covered,
+   so dropping the gutter cannot visibly shift anything. */
+html:has(#image-zoom[open]) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+#image-zoom[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+#image-zoom::backdrop {
+  background: #000;
+}
+
+#image-zoom img {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+}
+
+#image-zoom img.image-zoom-upscaled {
+  image-rendering: pixelated;
+}
+
+.image-zoom-caption {
+  color: #ddd;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+}
+
+#image-zoom-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
 }
 
 .panel-single-fig img.border-success {
@@ -425,7 +540,103 @@ table.mc-matrix td.mc-data-cell {
 }
 
 /* Label column of the single view's confidence rows and of the captions below them: one width
-   for both, so the true label and the file name start exactly where the bars do. */
+   for both, so the true label and the file name start exactly where the bars do.
+   At most 40 % of the row: in very narrow cards (four panels next to the notes dock on a small
+   screen) a fixed 7rem plus the percentage column was wider than the card and widened the page;
+   there the label is cut with an ellipsis instead. */
 .panel-row-label {
-  min-width: 7rem;
+  min-width: min(7rem, 40%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Toast of the quick-sort keys A/D (base.html): bottom centre, above panels and dialogs. */
+.quicksort-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  max-width: min(40rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+/* Category heading plus union/intersection switch in the filter dialog. The line never wraps, or
+   the checkbox lists below would lose their common height: the switch keeps its size and a heading
+   too long for the column is cut (full text in its title). */
+.filter-cat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .25rem;
+  margin-bottom: .25rem;
+}
+.filter-cat-head > .fw-bold {
+  font-size: .9rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filter-mode {
+  flex-shrink: 0;
+  display: inline-flex;
+  background: #e3e6e8;
+  border-radius: .4rem;
+  padding: 2px;
+}
+.filter-mode input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.filter-mode label {
+  padding: 1px 3px;
+  border-radius: .3rem;
+  color: #868e96;
+  cursor: pointer;
+}
+.filter-mode input:checked + label {
+  background: #fff;
+  color: #0a58ca;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+.filter-mode input:focus-visible + label {
+  outline: 2px solid #0d6efd;
+  outline-offset: 1px;
+}
+fieldset:disabled .filter-mode label {
+  cursor: default;
+  opacity: .6;
+}
+/* Excluded category option (tri-state island in _config_modal.html): an indeterminate checkbox
+   drawn as a cross instead of Bootstrap's dash, the label struck through. Shape and strike carry
+   the meaning, the red is only a supplement (colour-blind users, see the confusion matrix).
+   Selector as specific as Bootstrap's `.form-check-input[type=checkbox]:indeterminate`, plus one. */
+.form-check-input[type=checkbox].filter-tri:indeterminate {
+  background-color: var(--bs-danger);
+  border-color: var(--bs-danger);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-width='2.5' d='M6.5 6.5l7 7M13.5 6.5l-7 7'/%3e%3c/svg%3e");
+}
+.form-check:has(> .filter-tri:indeterminate) .filter-opt-label {
+  text-decoration: line-through;
+}
+.filter-excl-state {
+  display: none;
+}
+.form-check:has(> .filter-tri:indeterminate) .filter-excl-state {
+  display: inline;
+}
+
+.venn {
+  display: block;
+}
+.venn-region {
+  fill: currentColor;
+  fill-opacity: .6;
+}
+.venn-ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
 }

@@ -1,0 +1,20 @@
+{# Navbar badge: where the keys A/D currently file the left panel's image. Always rendered (empty when no target is set) so dialog actions can replace it out-of-band. A click opens the collections dialog, where the targets are chosen; the × switches quick sort off right here. #}
+<span id="quicksort-badge"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% set keep, drop = quicksort_targets.keep, quicksort_targets.drop %}
+  {% if keep or drop %}
+    <span class="btn-group btn-group-sm" role="group">
+      <button type="button" class="btn btn-outline-info py-0"
+              title="{{ t('quicksort.badge_title') }}"
+              hx-get="/collections" hx-target="#modal-container" hx-swap="innerHTML">
+        <i class="bi bi-keyboard"></i>
+        <kbd>A</kbd> {{ keep.title if keep else '—' }}
+        · <kbd>D</kbd> {{ drop.title if drop else '—' }}
+      </button>
+      <button type="button" class="btn btn-outline-info py-0 px-1"
+              title="{{ t('quicksort.off_title') }}" aria-label="{{ t('quicksort.off_title') }}"
+              hx-post="/quicksort/off" hx-target="#quicksort-badge" hx-swap="outerHTML">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </span>
+  {% endif %}
+</span>

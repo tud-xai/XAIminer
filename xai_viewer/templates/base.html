@@ -46,6 +46,7 @@
   {% endif %}
   <div class="ms-auto d-flex align-items-center gap-3">
     {% if session.get("project") %}
+      {% include 'partials/_quicksort_badge.html' %}
       {# Notes dock toggle: shows/hides the left column and (re)loads its content. #}
       <button type="button" class="btn btn-sm btn-outline-secondary"
               onclick="xaiToggleNotes()" title="{{ t('notes.toggle_title') }}">
@@ -100,6 +101,13 @@
 
 {# Secondary transient modals (e.g. the "open image in which panel?" chooser). #}
 <div id="modal-container"></div>
+
+{# Toast of the quick-sort keys. Responses replace only the inner #quicksort-toast out-of-band
+   (_quicksort_toast.html); showing/hiding toggles this stable wrapper. Toggling a class on the
+   swapped element itself does not stick: htmx's settle step resets its class attribute. #}
+<div id="quicksort-toast-wrap" class="quicksort-toast d-none" role="status" aria-live="polite">
+  <div id="quicksort-toast"></div>
+</div>
 
 <script src="{{ url_for('static', filename='vendor/bootstrap-5.3.3/bootstrap.bundle.min.js') }}"></script>
 <script>
@@ -162,6 +170,8 @@
     if (window.__xaiNotesKeys) return;
     window.__xaiNotesKeys = true;
     document.addEventListener("keydown", function (e) {
+      const zoom = document.getElementById("image-zoom");
+      if (zoom && zoom.open) return;            // large view: Escape closes it natively
       const tgt = e.target;
       const inField = tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA"
                               || tgt.tagName === "SELECT" || tgt.isContentEditable);
@@ -204,6 +214,8 @@
     window.__xaiKeyNav = true;
     document.addEventListener("keydown", function (e) {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const zoom = document.getElementById("image-zoom");
+      if (zoom && zoom.open) return;            // large view is for looking only
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"
                 || t.tagName === "SELECT" || t.isContentEditable)) return;
@@ -215,6 +227,60 @@
       e.preventDefault();
       htmx.ajax("POST", "/step-all/" + (e.key === "ArrowLeft" ? "prev" : "next"),
                 { target: "#workspace", swap: "outerHTML" });
+    });
+  })();
+</script>
+<script>
+  // Quick sort: A/D file the left panel's image into the keep/drop target collection (and step
+  // on), Ctrl+Z undoes the filings one by one. The undo stack lives here, in the page: each
+  // successful filing's toast carries it as data-undo. The toast shows for 3 s; a new one simply
+  // replaces it. Same typing gate as the other shortcuts; additionally inactive while a dialog is
+  // open — the image behind it is not what the user is looking at. In a text field Ctrl+Z stays
+  // the browser's own undo. Single listener in base.html (not replaced by HTMX).
+  (function () {
+    if (window.__xaiQuickSort) return;
+    window.__xaiQuickSort = true;
+    var undoStack = [];
+    var hideTimer = null;
+    var TOAST_MS = 3000;
+
+    function showToast() {
+      var wrap = document.getElementById("quicksort-toast-wrap");
+      var toast = document.getElementById("quicksort-toast");
+      if (!wrap || !toast) return;
+      if (toast.dataset.undo) {
+        try { undoStack.push(JSON.parse(toast.dataset.undo)); } catch (_) {}
+      }
+      wrap.classList.remove("d-none");
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(function () { wrap.classList.add("d-none"); }, TOAST_MS);
+    }
+
+    function post(url, values) {
+      var req = htmx.ajax("POST", url, { target: "#workspace", swap: "outerHTML", values: values || {} });
+      if (req && req.then) req.then(showToast);
+    }
+
+    document.addEventListener("keydown", function (e) {
+      var t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA"
+                || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (!document.getElementById("data-page")) return;      // not the workspace
+      var mc = document.getElementById("modal-container");
+      if (mc && mc.innerHTML.trim() !== "") return;
+      var zoom = document.getElementById("image-zoom");
+      if (zoom && zoom.open) return;            // large view is for looking only
+      var key = (e.key || "").toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && key === "z") {
+        e.preventDefault();
+        var last = undoStack.pop();
+        post("/quicksort/undo", last ? { image_id: last.image_id, restore: JSON.stringify(last.restore) } : {});
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;   // browser shortcuts; held key
+      if (key !== "a" && key !== "d") return;
+      e.preventDefault();
+      post(key === "a" ? "/quicksort/keep" : "/quicksort/drop");
     });
   })();
 </script>
@@ -492,7 +558,8 @@
 
     // Only the application's own shortcuts, not everything typed: free text arrives via the
     // change event, whole and once, instead of as a stream of keystrokes.
-    var TRACKED_KEYS = { Escape: 1, ArrowLeft: 1, ArrowRight: 1, n: 1, N: 1, Enter: 1 };
+    var TRACKED_KEYS = { Escape: 1, ArrowLeft: 1, ArrowRight: 1, n: 1, N: 1, Enter: 1,
+                         a: 1, A: 1, d: 1, D: 1, z: 1, Z: 1 };
 
     document.addEventListener("keydown", function (e) {
       if (!state.on || !TRACKED_KEYS[e.key]) return;

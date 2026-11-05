@@ -35,6 +35,23 @@ FILTER_CATEGORIES = {
     },
 }
 
+# How the ticked options of one category combine: "or" (one suffices, the default) or "and" (all
+# required, possible because every category is multi-valued). Kept in a sub-dict of the filter
+# configuration and only for categories deviating from the default: categories belong to the
+# dataset, so a flat key next to them could collide, and panels or notes saved before this
+# setting existed simply read as "or".
+CATEGORY_MODES_KEY = "category_modes"
+CATEGORY_MODE_OR = "or"
+CATEGORY_MODE_AND = "and"
+
+# Excluded options per category (`{key: [token]}`): an image carrying any of them drops out,
+# whatever the category's mode — the mode only combines the *ticked* options. Same sub-dict
+# reasoning as CATEGORY_MODES_KEY; configurations without it exclude nothing. An image without
+# the token counts as "without" it, also when the category is empty or missing for that image:
+# the same closed-world reading the ticked options have, and all datasets label every category
+# (manual or scene attributes), so "empty" means "labelled, none".
+EXCLUDED_KEY = "excluded"
+
 # Prediction-based filter: not derived from image attributes but from the panel's prediction
 # (model + level) → applied in _panel_images, not in image_passes_filter().
 # Single-select; empty value = no restriction. Labels:
@@ -91,6 +108,8 @@ def empty_filter_config(categories: dict = None):
     """Empty filter configuration: no restriction."""
     categories = FILTER_CATEGORIES if categories is None else categories
     cfg = {key: [] for key in categories}
+    cfg[CATEGORY_MODES_KEY] = {}
+    cfg[EXCLUDED_KEY] = {}
     for key, spec in DISTANCE_FILTERS.items():
         cfg[key] = [spec["min"], spec["max"]]
     cfg[CLASSIFICATION_FILTER["key"]] = ""
@@ -108,23 +127,41 @@ def attribute_tokens(attributes: dict, key: str) -> list:
     return list(value) if isinstance(value, (list, tuple, set)) else [value]
 
 
+def category_mode(filter_config: dict, key: str) -> str:
+    """How the ticked options of a category combine; configurations without the setting mean OR."""
+    return filter_config.get(CATEGORY_MODES_KEY, {}).get(key, CATEGORY_MODE_OR)
+
+
+def excluded_options(filter_config: dict, key: str) -> list:
+    """Options of a category the image must NOT carry; configurations without the setting: none."""
+    return filter_config.get(EXCLUDED_KEY, {}).get(key, [])
+
+
 def image_passes_filter(attributes: dict, filter_config: dict, skip_key: str = None,
                         categories: dict = None) -> bool:
     """Checks whether an image (via its attributes) satisfies the filter configuration.
 
-    Semantics: within a category OR, between categories AND.
+    Semantics: within a category OR or AND (per category, see category_mode()), between
+    categories always AND. Excluded options (EXCLUDED_KEY) drop every image carrying one.
     Empty selection in a category = no restriction.
     Distances: a narrowed range also drops images that carry no value for it (see below).
-    `skip_key`: ignore this category when checking (for faceted counts, to exclude the
-    own facet). The prediction filter `klassifikation` is not handled here.
+    `skip_key`: ignore the *ticked* options of this category when checking (for faceted counts,
+    to exclude the own facet) — its exclusions still apply. The prediction filter
+    `klassifikation` is not handled here.
     """
     for key in (FILTER_CATEGORIES if categories is None else categories):
+        tokens = set(attribute_tokens(attributes, key))
+        if tokens & set(excluded_options(filter_config, key)):
+            return False
         if key == skip_key:
             continue
         selected = filter_config.get(key, [])
         if not selected:
             continue
-        if not set(selected) & set(attribute_tokens(attributes, key)):
+        if category_mode(filter_config, key) == CATEGORY_MODE_AND:
+            if not set(selected) <= tokens:
+                return False
+        elif not set(selected) & tokens:
             return False
 
     for key, spec in DISTANCE_FILTERS.items():

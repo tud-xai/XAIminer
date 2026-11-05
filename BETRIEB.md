@@ -29,6 +29,17 @@ python tools/build_metadata.py RailPer
 flask --app app run        # http://127.0.0.1:5000
 ```
 
+**Beim Entwickeln** statt Schritt 3 besser `python app.py` (optional `--port 5001`): Der Server
+startet bei jeder Änderung an Python-Dateien, i18n-Katalogen, `config.toml`, `legal.toml`,
+`featured_images.toml` und `requirements.toml` von selbst neu; Templates werden ohnehin bei jedem
+Request frisch gelesen. Das schaltet den Debug-Modus ein (Werkzeug-Debugger im Browser bei
+Fehlern) — deshalb **nur lokal**, nie auf einem erreichbaren Server.
+
+`python app.py --help` zeigt die Optionen und alle Umgebungsvariablen (`XAI_*`), die die App
+liest, samt ihrem `config.toml`-Gegenstück und ob sie in der aktuellen Shell gesetzt sind.
+Umgebungsvariablen haben stets Vorrang vor `config.toml`, z. B.
+`XAI_DEMO_MODE=1 python app.py --port 5001`.
+
 > **Ohne Schritt 2** zeigt die App eine hilfreiche Fehlerseite statt eines 500ers –
 > mit dem genauen Pfad und dem Befehl zum Beheben.
 
@@ -371,6 +382,16 @@ Filter-Request sagt nicht, welches Häkchen ihn ausgelöst hat.
 
 Dieselbe Tastenkombination schaltet wieder aus; die Aufzeichnung endet außerdem mit dem Browser.
 
+**Studien-Konten:** Ein Nutzername, der mit `study_user_` beginnt (z. B. `study_user_07`),
+meldet sich im Konto-Bereich mit dem gemeinsamen Passwort **`study`** an; ein Konto muss dafür
+nicht angelegt werden. Die Sitzung läuft im **Study-Modus**: Die Aufzeichnung ist sofort scharf
+und lässt sich mit dem Shortcut **nicht** ausschalten, und die *Schnellnotizen* (Textfeld unter
+den Panels, siehe Bedienungsanleitung) sind an. Voraussetzung ist Stufe 1 oben — ohne sie startet
+der Study-Modus ohne Aufzeichnung, und das Log meldet das bei jeder solchen Anmeldung. Die Daten
+liegen im Konto `study_user_…` (auch im Demo-Modus, keine Gast-Sandbox). Weil das Passwort bekannt
+ist, kann jede:r, die den Präfix kennt, jedes Studien-Konto öffnen — für Studienmaterial gedacht,
+nicht für private Arbeit.
+
 **Was aufgezeichnet wird:** Klicks (mit Beschriftung, Panel und Dialog), Änderungen an Feldern
 inklusive eingegebener Texte, die App-Shortcuts, die ausgelösten HTMX-Requests sowie Seitenaufrufe
 — jeweils mit Zeitstempel, Anzeigename, Projekt und Datensatz. **Nicht** aufgezeichnet werden
@@ -475,6 +496,9 @@ Tracking) — das muss dem Code folgen, nicht dem Betreiber.
 - Solange in einem Abschnitt noch ein `[Platzhalter]` steht, zeigt die Seite einen Entwurfshinweis.
 - Fehlt die Datei, antworten `/imprint` und `/privacy` mit „nicht konfiguriert", die Kontakt-Links
   entfallen, und die App warnt beim Start.
+- **Ankündigung auf der Startseite** (z. B. eine Veranstaltung): optionaler Abschnitt
+  `[<lang>.announcement]`, erscheint über dem Login-Formular und verschwindet nach `show_until`
+  (Datum, inklusive) von selbst. Felder: siehe `legal.example.toml`.
 
 ## Tests
 

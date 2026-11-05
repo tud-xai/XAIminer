@@ -1,8 +1,10 @@
 {# A single panel: header (configuration, actions) + gallery of filtered images. #}
 <div class="card panel-card" id="panel-{{ p.id }}">
 
-  <div class="card-header d-flex align-items-center gap-2 py-1 px-2">
-    <div class="d-flex align-items-center gap-2 me-auto" style="min-width: 0">
+  {# Title and action group wrap onto two lines when the card is too narrow for both (four #}
+  {# panels plus the notes dock); see .panel-header in style.css. #}
+  <div class="card-header panel-header py-1 px-2">
+    <div class="panel-header-title d-flex align-items-center gap-2">
       {# p.xai_label is already singular in the single-image view (see _render_workspace). #}
       {% set display_label = t('config.modelcard') if p.is_modelcard else p.xai_label %}
       <strong class="text-truncate">
@@ -10,35 +12,37 @@
       </strong>
       {% include "partials/_source_badge.html" %}
     </div>
-    {# No coupling control for a modelcard panel: nothing to scroll or step through (Q3a) #}
-    {% if not p.is_modelcard %}
-      <button type="button"
-              class="btn btn-sm {{ 'btn-primary' if p.linked else 'btn-outline-secondary' }}"
-              title="{{ t('panel.link.unlink_title') if p.linked else t('panel.link.link_title') }}"
-              hx-post="/panel/{{ p.id }}/link" hx-swap="none"
-              onclick="xaiToggleLink(this, {{ p.id }})">
-        <i class="bi bi-link-45deg"></i>
+    <div class="panel-header-actions">
+      {# No coupling control for a modelcard panel: nothing to scroll or step through (Q3a) #}
+      {% if not p.is_modelcard %}
+        <button type="button"
+                class="btn btn-sm {{ 'btn-primary' if p.linked else 'btn-outline-secondary' }}"
+                title="{{ t('panel.link.unlink_title') if p.linked else t('panel.link.link_title') }}"
+                hx-post="/panel/{{ p.id }}/link" hx-swap="none"
+                onclick="xaiToggleLink(this, {{ p.id }})">
+          <i class="bi bi-link-45deg"></i>
+        </button>
+      {% endif %}
+      <button type="button" class="btn btn-sm btn-outline-primary" title="{{ t('panel.config_title') }}"
+              hx-get="/panel/{{ p.id }}/config" hx-target="#modal-container" hx-swap="innerHTML">
+        <i class="bi bi-sliders"></i>
       </button>
-    {% endif %}
-    <button type="button" class="btn btn-sm btn-outline-primary" title="{{ t('panel.config_title') }}"
-            hx-get="/panel/{{ p.id }}/config" hx-target="#modal-container" hx-swap="innerHTML">
-      <i class="bi bi-sliders"></i>
-    </button>
-    <button type="button" class="btn btn-sm btn-outline-secondary"
-            title="{{ t('workspace.panel_limit', max=max_panels) if panel_limit_reached else t('panel.duplicate') }}"
-            hx-post="/panel/{{ p.id }}/duplicate" hx-target="#workspace" hx-swap="outerHTML"
-            {% if panel_limit_reached %}disabled{% endif %}>
-      <i class="bi bi-copy"></i>
-    </button>
-    <button type="button" class="btn btn-sm btn-outline-secondary" title="{{ t('panel.hide') }}"
-            hx-post="/panel/{{ p.id }}/toggle" hx-target="#workspace" hx-swap="outerHTML">
-      <i class="bi bi-eye-slash"></i>
-    </button>
-    <button type="button" class="btn btn-sm btn-outline-danger" title="{{ t('panel.delete') }}"
-            hx-post="/panel/{{ p.id }}/delete" hx-target="#workspace" hx-swap="outerHTML"
-            hx-confirm="{{ t('panel.delete_confirm', pid=p.id) }}">
-      <i class="bi bi-x-lg"></i>
-    </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              title="{{ t('workspace.panel_limit', max=max_panels) if panel_limit_reached else t('panel.duplicate') }}"
+              hx-post="/panel/{{ p.id }}/duplicate" hx-target="#workspace" hx-swap="outerHTML"
+              {% if panel_limit_reached %}disabled{% endif %}>
+        <i class="bi bi-copy"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" title="{{ t('panel.hide') }}"
+              hx-post="/panel/{{ p.id }}/toggle" hx-target="#workspace" hx-swap="outerHTML">
+        <i class="bi bi-eye-slash"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-danger" title="{{ t('panel.delete') }}"
+              hx-post="/panel/{{ p.id }}/delete" hx-target="#workspace" hx-swap="outerHTML"
+              hx-confirm="{{ t('panel.delete_confirm', pid=p.id) }}">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
   </div>
 
   <div class="card-body p-2">
@@ -134,8 +138,12 @@
           {% if p.current.confidence is not none %}{{ (p.current.confidence * 100) | round | int }}%{% endif %}
         </span>
       </div>
+      {# Clicking the image opens it as large as the screen allows (#image-zoom in workspace.html); #}
+      {# the caption travels along in data-zoom-caption, correctness in data-zoom-correct. #}
       <figure class="panel-single-fig m-0"
-              title="{{ p.current.id }} – {{ t('common.true_label') }}: {{ p.current.true_class }}, {{ t('common.prediction_label') }}: {{ p.current.predicted_class }}">
+              title="{{ p.current.id }} – {{ t('common.true_label') }}: {{ p.current.true_class }}, {{ t('common.prediction_label') }}: {{ p.current.predicted_class }}{{ '\n' }}{{ t('single.zoom_hint') }}"
+              data-zoom-correct="{{ 1 if p.current.correct else 0 }}"
+              data-zoom-caption="{{ t('common.true_label') | capitalize }}: {{ p.current.true_class }} · {{ t('common.prediction_label') }}: {{ p.current.predicted_class }}{% if p.current.confidence is not none %} {{ (p.current.confidence * 100) | round | int }}%{% endif %} · {{ t('common.file_label') }}: {{ p.current.id }}">
         <img src="{{ p.current.full_url }}" alt="{{ p.current.id }}"
              class="{{ 'border-success' if p.current.correct else 'border-danger' }}">
       </figure>
@@ -197,7 +205,7 @@
         {% for img in p.images %}
           <figure class="panel-thumb m-0" style="cursor: pointer"
                   hx-post="/panel/{{ p.id }}/open/{{ loop.index0 }}" hx-target="#workspace" hx-swap="outerHTML"
-                  title="{{ img.id }} – {{ t('common.true_label') }}: {{ img.true_class }}, {{ t('common.prediction_label') }}: {{ img.predicted_class }}{{ '\n' }}{{ t('common.confidences_label') }}: {% for c in img.confidences %}{{ c.label }} {{ (c.value * 100) | round | int }}%{% if not loop.last %}, {% endif %}{% endfor %}{{ '\n' }}{{ t('gallery.click_fullscreen') }}">
+                  title="{{ img.id }} – {{ t('common.true_label') }}: {{ img.true_class }}, {{ t('common.prediction_label') }}: {{ img.predicted_class }}{{ '\n' }}{{ t('common.confidences_label') }}: {% for c in img.confidences %}{{ c.label }} {{ (c.value * 100) | round | int }}%{% if not loop.last %}, {% endif %}{% endfor %}{{ '\n' }}{{ t('gallery.click_single') }}">
             <img src="{{ img.url }}" alt="{{ img.id }}" loading="lazy"
                  class="{{ 'border-success' if img.correct else 'border-danger' }}">
             <figcaption class="small text-truncate">

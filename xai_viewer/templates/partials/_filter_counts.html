@@ -2,7 +2,8 @@
 {# without touching checkboxes/radios/focus/gallery (response to /panel/<id>/filter-counts). #}
 {% for key, spec in filter_categories.items() %}
   {% for value, label in spec.options.items() %}
-    <span id="cnt-{{ key }}-{{ value }}" hx-swap-oob="true">({{ counts.categories[key].get(value, 0) }})</span>
+    {# An excluded option shows the images left WITHOUT it (remaining), not those carrying it. #}
+    <span id="cnt-{{ key }}-{{ value }}" hx-swap-oob="true">({{ counts.remaining[key] if value in excluded.get(key, []) else counts.categories[key].get(value, 0) }})</span>
   {% endfor %}
 {% endfor %}
 {% for value, label in classification_filter.options.items() %}

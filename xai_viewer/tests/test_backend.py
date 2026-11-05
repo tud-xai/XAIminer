@@ -28,6 +28,7 @@ from app import (COLLECTIONS_STORE, MODELCARD_META_FIELDS, MODELCARD_META_NA, MO
                  _confidence_matches, _matrix_cell_images, _model_metadata, _modelcard_stats,
                  _predicted_confidence, app as flask_app, load_metadata)
 from notes import NotesStore
+import data_export
 import tracking
 from tracking import TrackingStore
 from requirements_catalog import label_for, load_requirements, parse_requirements, text_for
@@ -297,6 +298,27 @@ class TestWorkspace(unittest.TestCase):
         expected = f"{_FILTER_COUNT} " + ("Bild" if _FILTER_COUNT == 1 else "Bilder")
         self.assertIn(expected, resp.data.decode())
 
+    def test_b230__the_dialog_mode_reaches_gallery_summary_and_reopened_dialog(self):
+        self.client.get("/")
+        form = {"model": "VGG16", "level": "high", "xai_method": "original",
+                "filter_umgebung": ["stadt", "bahnhof"]}
+        body = self.client.post("/panel/1/config", data=form).data.decode()
+        self.assertIn("Stadt oder Bahnhof", body)
+        self.assertNotIn(">0 Bilder", body)
+        # Each mock image has exactly one environment, so nothing carries both.
+        body = self.client.post("/panel/1/config", data={**form, "filtermode_umgebung": "and"}).data.decode()
+        self.assertIn("Stadt und Bahnhof", body)
+        self.assertIn("0 Bilder", body)
+        dialog = self.client.get("/panel/1/config").data.decode()
+        self.assertRegex(dialog, r'id="fm-umgebung-and"\s+checked')
+        self.assertNotRegex(dialog, r'id="fm-objekte-and"\s+checked')
+
+    def test_b231__an_unknown_mode_value_falls_back_to_or(self):
+        self.client.get("/")
+        form = {"model": "VGG16", "level": "high", "xai_method": "original",
+                "filter_umgebung": ["stadt", "bahnhof"], "filtermode_umgebung": "xor"}
+        self.assertIn("Stadt oder Bahnhof", self.client.post("/panel/1/config", data=form).data.decode())
+
     def test_b04__incompatible_xai_method_falls_back_to_original(self):
         self.client.get("/")
         resp = self.client.post("/panel/1/config", data={
@@ -493,6 +515,18 @@ class TestWorkspace(unittest.TestCase):
         body = resp.data.decode()
         self.assertIn("panel-single-fig", body)
         self.assertIn("3 / ", body)  # index 2 → position 3
+
+    def test_b232__single_view_image_opens_a_large_view_outside_the_workspace(self):
+        """The large view must survive workspace swaps (lives outside #workspace) and the
+        single-view figure must carry the caption the dialog shows."""
+        page = self.client.get("/").data.decode()
+        self.assertIn('id="image-zoom"', page)
+        self.assertLess(page.index('id="workspace"'), page.index('id="image-zoom"'))
+        _configure(self.client, 1)
+        body = self.client.post("/panel/1/open/2").data.decode()
+        self.assertNotIn('id="image-zoom"', body)        # the swap response must not carry it
+        self.assertIn("data-zoom-caption=", body)
+        self.assertIn("data-zoom-correct=", body)
 
     def test_b25__step_advances_single_view_index(self):
         self.client.get("/")
@@ -895,6 +929,37 @@ class TestFilterLogic(unittest.TestCase):
         cfg["dist_lateral_m"] = [0, 0]
         matched = [i for i in METADATA["images"] if image_passes_filter(i["attributes"], cfg)]
         self.assertLessEqual(len(matched), _FILTER_COUNT)
+
+    def test_b227__category_mode_decides_between_one_and_all_ticked_values(self):
+        both = {"umgebung": ["stadt", "bahnhof"]}
+        one = {"umgebung": ["stadt"]}
+        cfg = empty_filter_config()
+        cfg["umgebung"] = ["stadt", "bahnhof"]
+        self.assertTrue(image_passes_filter(both, cfg))
+        self.assertTrue(image_passes_filter(one, cfg))
+        cfg["category_modes"] = {"umgebung": "and"}
+        self.assertTrue(image_passes_filter(both, cfg))
+        self.assertFalse(image_passes_filter(one, cfg))
+
+    def test_b228__a_saved_configuration_without_modes_still_means_or(self):
+        cfg = empty_filter_config()
+        cfg["umgebung"] = ["stadt", "bahnhof"]
+        del cfg["category_modes"]
+        self.assertTrue(image_passes_filter({"umgebung": ["stadt"]}, cfg))
+
+    def test_b229__counts_in_and_mode_say_what_would_remain(self):
+        meta = {"predictions": {}, "images": [
+            {"id": "a", "true_class": "x", "attributes": {"umgebung": ["stadt", "bahnhof"]}},
+            {"id": "b", "true_class": "x", "attributes": {"umgebung": ["stadt", "tunnel"]}},
+            {"id": "c", "true_class": "x", "attributes": {"umgebung": ["tunnel"]}},
+        ]}
+        cfg = empty_filter_config()
+        cfg["umgebung"] = ["stadt"]
+        counts = app_module._faceted_counts(meta, "m", "l", cfg)["categories"]["umgebung"]
+        self.assertEqual(counts, {"stadt": 2, "bahnhof": 1, "tunnel": 2})  # own selection ignored
+        cfg["category_modes"] = {"umgebung": "and"}
+        counts = app_module._faceted_counts(meta, "m", "l", cfg)["categories"]["umgebung"]
+        self.assertEqual(counts, {"stadt": 2, "bahnhof": 1, "tunnel": 1})  # image c cannot remain
 
     def test_b179__a_narrowed_distance_drops_images_without_a_value(self):
         """A synthetic image without a person carries no distance (build_metadata: `scene`).
@@ -1671,6 +1736,214 @@ class TestCollectionManagement(unittest.TestCase):
             self.client.post(f"/notes/{note['id']}/refpoint/0/open-collection").status_code, 404)
 
 
+# ── quick sort: keys A/D file the left panel's image into keep/drop collections ──
+
+class TestQuickSort(unittest.TestCase):
+    """A/D put the left panel's current image into the keep/drop target collection and step on;
+    an image is never in both; undo restores the membership and jumps back (2026-10-15)."""
+
+    def setUp(self):
+        flask_app.config["TESTING"] = True
+        flask_app.config["SECRET_KEY"] = "test-secret"
+        self.client = flask_app.test_client()
+        self._tmp = tempfile.TemporaryDirectory()
+        self._orig_notes = NOTES_STORE.path
+        self._orig_cols = COLLECTIONS_STORE.path
+        NOTES_STORE.path = Path(self._tmp.name) / "notes.json"
+        COLLECTIONS_STORE.path = Path(self._tmp.name) / "collections.json"
+        _auth_session(self.client)
+        self.client.get("/")
+        _configure(self.client, 1)
+        self.keep = self._collection("Behalten")
+        self.drop = self._collection("Aussortieren")
+
+    def tearDown(self):
+        NOTES_STORE.path = self._orig_notes
+        COLLECTIONS_STORE.path = self._orig_cols
+        self._tmp.cleanup()
+
+    def _collection(self, title):
+        return COLLECTIONS_STORE.create(title=title, image_ids=[], owner=OWNER, user="u",
+                                        project="p", dataset=TEST_DATASET)
+
+    def _ids(self, col):
+        return COLLECTIONS_STORE.get(col["id"], OWNER)["image_ids"]
+
+    def _roles(self):
+        """{collection title: quicksort_role} for the collections that carry one."""
+        return {c["title"]: c["quicksort_role"] for c in COLLECTIONS_STORE.list_collections(OWNER)
+                if c.get("quicksort_role")}
+
+    def _set_targets(self, keep=None, drop=None):
+        return self.client.post("/quicksort/targets", data={
+            "keep": "" if keep is None else keep["id"], "drop": "" if drop is None else drop["id"]})
+
+    def _panel(self):
+        with self.client.session_transaction() as sess:
+            return sess["panels"][0]
+
+    def _image_at(self, index):
+        """Image id at <index> of panel 1 (unfiltered → the dataset order)."""
+        return METADATA["images"][index]["id"]
+
+    def _undo_payload(self, html):
+        match = re.search(r'data-undo="([^"]*)"', html)
+        self.assertIsNotNone(match, "toast carries no undo payload")
+        return json.loads(match.group(1).replace("&#34;", '"').replace("&quot;", '"'))
+
+    def test_b216__keep_files_image_and_steps_on(self):
+        self._set_targets(self.keep, self.drop)
+        self.client.post("/panel/1/open/0")
+        html = self.client.post("/quicksort/keep").data.decode()
+        self.assertEqual(self._ids(self.keep), [self._image_at(0)])
+        self.assertEqual(self._ids(self.drop), [])
+        self.assertEqual(self._panel()["index"], 1)
+        self.assertIn('id="quicksort-toast" hx-swap-oob="true"', html)
+        self.assertIn('id="workspace"', html)
+
+    def test_b217__drop_moves_image_out_of_keep(self):
+        """An image is never in both: filing it on the other side moves it."""
+        self._set_targets(self.keep, self.drop)
+        self.client.post("/panel/1/open/0")
+        self.client.post("/quicksort/keep")
+        self.client.post("/panel/1/open/0")
+        self.client.post("/quicksort/drop")
+        self.assertEqual(self._ids(self.keep), [])
+        self.assertEqual(self._ids(self.drop), [self._image_at(0)])
+
+    def test_b218__undo_restores_membership_and_jumps_back(self):
+        self._set_targets(self.keep, self.drop)
+        self.client.post("/panel/1/open/0")
+        self.client.post("/quicksort/keep")
+        self.client.post("/panel/1/open/0")
+        payload = self._undo_payload(self.client.post("/quicksort/drop").data.decode())
+        self.assertEqual(self._panel()["index"], 1)
+        self.client.post("/quicksort/undo", data={"image_id": payload["image_id"],
+                                                  "restore": json.dumps(payload["restore"])})
+        self.assertEqual(self._ids(self.keep), [self._image_at(0)])   # back where it was
+        self.assertEqual(self._ids(self.drop), [])
+        self.assertEqual(self._panel()["index"], 0)                   # shown again
+
+    def test_b219__already_filed_image_changes_nothing_and_offers_no_undo(self):
+        self._set_targets(self.keep, self.drop)
+        self.client.post("/panel/1/open/0")
+        self.client.post("/quicksort/keep")
+        self.client.post("/panel/1/open/0")
+        html = self.client.post("/quicksort/keep").data.decode()
+        self.assertEqual(self._ids(self.keep), [self._image_at(0)])
+        self.assertNotIn("data-undo", html)
+
+    def test_b220__keys_need_a_target_and_a_single_view(self):
+        # No target yet → nothing is filed, the panel stays.
+        self.client.post("/panel/1/open/0")
+        html = self.client.post("/quicksort/keep").data.decode()
+        self.assertIn("quicksort-toast", html)
+        self.assertEqual(self._ids(self.keep), [])
+        self.assertEqual(self._panel()["index"], 0)
+        # Target set, but the left panel shows its gallery → nothing either (A1).
+        self._set_targets(self.keep, self.drop)
+        self.client.post("/panel/1/gallery")
+        self.client.post("/quicksort/drop")
+        self.assertEqual(self._ids(self.drop), [])
+        self.assertEqual(self.client.post("/quicksort/sideways").status_code, 404)
+
+    def test_b221__frozen_or_identical_targets_are_refused(self):
+        NOTES_STORE.create(title="N", text="", refpoints=[{"type": "collection", "id": self.keep["id"]}],
+                           owner=OWNER, user="u", project="p", dataset=TEST_DATASET)
+        self._set_targets(self.keep, self.drop)
+        self.assertEqual(self._roles(), {})
+        self._set_targets(self.drop, self.drop)
+        self.assertEqual(self._roles(), {})
+        # A target frozen AFTER it was chosen is no longer used.
+        self._set_targets(None, self.drop)
+        NOTES_STORE.create(title="M", text="", refpoints=[{"type": "collection", "id": self.drop["id"]}],
+                           owner=OWNER, user="u", project="p", dataset=TEST_DATASET)
+        self.client.post("/panel/1/open/0")
+        self.client.post("/quicksort/drop")
+        self.assertEqual(self._ids(self.drop), [])
+
+    def test_b222__new_empty_collection_and_badge(self):
+        html = self.client.post("/quicksort/new-collection", data={"title": "Studie"}).data.decode()
+        col = next(c for c in COLLECTIONS_STORE.list_collections(OWNER) if c["title"] == "Studie")
+        self.assertEqual(col["image_ids"], [])
+        self.assertIn('id="quicksort-badge" hx-swap-oob="true"', html)
+        self._set_targets(col, None)
+        page = self.client.get("/").data.decode()
+        self.assertIn("<kbd>A</kbd> Studie", page)
+
+    def test_b224__switch_off_from_badge_and_dialog(self):
+        self._set_targets(self.keep, self.drop)
+        self.assertIn('hx-post="/quicksort/off"', self.client.get("/").data.decode())
+        # From the navbar ×: answers with the empty badge only.
+        html = self.client.post("/quicksort/off", headers={"HX-Target": "quicksort-badge"}).data.decode()
+        self.assertIn('id="quicksort-badge"', html)
+        self.assertNotIn("<kbd>", html)
+        self.client.post("/panel/1/open/0")
+        self.client.post("/quicksort/keep")
+        self.assertEqual(self._ids(self.keep), [])           # keys are inert now
+        # From the dialog: answers with its body, badge refreshed out-of-band.
+        self._set_targets(self.keep, None)
+        html = self.client.post("/quicksort/off").data.decode()
+        self.assertIn(CATALOGS["de"]["quicksort.switched_off"], html)
+        self.assertIn('id="quicksort-badge" hx-swap-oob="true"', html)
+        self.assertNotIn("<kbd>A</kbd>", self.client.get("/").data.decode())
+
+    def test_b225__export_contains_own_data_of_all_datasets_without_owner(self):
+        self._collection("Nur meins")
+        COLLECTIONS_STORE.create(title="Fremd", image_ids=[], owner="user:other", user="o",
+                                 project="p", dataset=TEST_DATASET)
+        COLLECTIONS_STORE.create(title="Anderer Datensatz", image_ids=["x"], owner=OWNER, user="u",
+                                 project="p", dataset="other")
+        NOTES_STORE.create(title="N", text="t", refpoints=[{"type": "collection", "id": self.keep["id"]}],
+                           owner=OWNER, user="u", project="p", dataset=TEST_DATASET)
+        resp = self.client.get("/export/my-data")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("attachment", resp.headers["Content-Disposition"])
+        doc = json.loads(resp.data)
+        self.assertEqual((doc["format"], doc["format_version"]),
+                         (data_export.FORMAT, data_export.FORMAT_VERSION))
+        titles = {c["title"] for c in doc["collections"]}
+        self.assertEqual(titles, {"Behalten", "Aussortieren", "Nur meins", "Anderer Datensatz"})
+        self.assertEqual([n["title"] for n in doc["notes"]], ["N"])
+        self.assertTrue(all("owner" not in r for r in doc["notes"] + doc["collections"]))
+        # Ids survive, so an importer can remap the note → collection reference.
+        self.assertEqual(doc["notes"][0]["refpoints"][0]["id"], self.keep["id"])
+        self.assertEqual(doc["requirements"], [])          # master catalog in effect
+        self.assertEqual(flask_app.test_client().get("/export/my-data").status_code, 403)
+        # A private catalog is carried along, as its source text.
+        orig_dir = REQUIREMENTS_STORE.directory
+        REQUIREMENTS_STORE.directory = Path(self._tmp.name)
+        try:
+            source = REQUIREMENTS_STORE.master_source()
+            REQUIREMENTS_STORE.save(OWNER, TEST_DATASET, source)
+            doc = json.loads(self.client.get("/export/my-data").data)
+            self.assertEqual(doc["requirements"], [{"dataset": TEST_DATASET, "toml": source}])
+        finally:
+            REQUIREMENTS_STORE.directory = orig_dir
+
+    def test_b226__targets_survive_a_new_login(self):
+        """Stored on the collections, not in the session: a fresh login (another device) keeps
+        them; re-choosing moves the role instead of duplicating it, switching off clears it."""
+        self._set_targets(self.keep, self.drop)
+        self.assertEqual(self._roles(), {"Behalten": "keep", "Aussortieren": "drop"})
+        other = flask_app.test_client()
+        _auth_session(other)
+        other.get("/")
+        _configure(other, 1)
+        other.post("/panel/1/open/0")
+        other.post("/quicksort/keep")
+        self.assertEqual(self._ids(self.keep), [self._image_at(0)])
+        third = self._collection("Neu")
+        self._set_targets(third, self.drop)
+        self.assertEqual(self._roles(), {"Neu": "keep", "Aussortieren": "drop"})
+        self.client.post("/quicksort/off")
+        self.assertEqual(self._roles(), {})
+
+    def test_b223__undo_without_entry_reports_nothing_to_undo(self):
+        html = self.client.post("/quicksort/undo").data.decode()
+        self.assertIn(CATALOGS["de"]["quicksort.nothing_to_undo"], html)
+
+
 # ── i18n ──────────────────────────────────────────────────────────────────────
 
 class TestFooter(unittest.TestCase):
@@ -1834,6 +2107,20 @@ class TestFooter(unittest.TestCase):
                 self.assertIn(lang, data, f"{path.name}: [{lang}]")
                 for key in ("imprint", "privacy", "contact_url"):
                     self.assertIn(key, data[lang], f"{path.name}: [{lang}] {key}")
+
+    def test_b215__the_login_shows_the_announcement_until_its_end_date(self):
+        """An event notice from the legal file sits on the login page and retires on its own."""
+        item = {"title": "Webinar X", "paragraphs": ["Body Y"], "contact_email": "a@example.org",
+                "show_until": date(2026, 11, 13)}
+        app_module.LEGAL = {"de": {"announcement": item}}
+        body = self.client.get("/login").data.decode()
+        self.assertIn("Webinar X", body)
+        self.assertIn("Body Y", body)
+        self.assertIn('href="mailto:a@example.org"', body)
+        self.assertLess(body.index("Webinar X"), body.index('name="mode"'))
+        self.assertIs(legal.announcement({"announcement": item}, date(2026, 11, 13)), item)
+        self.assertIsNone(legal.announcement({"announcement": item}, date(2026, 11, 14)))
+        self.assertIsNone(legal.announcement({}, date(2026, 11, 1)))
 
     def test_b214__the_catalogues_carry_no_operator_details(self):
         """Operator texts belong in the legal file: a catalogue value naming an institution would
@@ -2883,6 +3170,30 @@ class TestBuildMetadata(unittest.TestCase):
             self.assertEqual([e["rank"] for e in got["img.a.001"]], [1, 2])  # rank-sorted
             self.assertEqual(got["img.a.001"][0]["concept_id"], 20)  # rank 1 = highest relevance
 
+    def test_b245__misnamed_xai_files_are_reported(self):
+        """The availability scan counts any image; the app only finds <basename>_<appendix>.
+        Files fitting no original must be reported, correctly named ones must not."""
+        from tools.build_metadata import scan_xai_availability, unmatched_xai_files
+        with tempfile.TemporaryDirectory() as tmp:
+            xai = Path(tmp) / "xai"
+            files = {
+                "VGG16/Grad-CAM/high": ["a_gradcam.jpg", "b.x.1_gradcam.png"],   # fine (dotted id)
+                "VGG16/SmoothGrad/high": ["a_smoothgrad.png", "b.x.1_sg.png", "zzz_smoothgrad.png"],
+                "VGG16/CRAFT/high/concept_attribution_maps": ["a_craft.jpg"],      # fine (subdir)
+            }
+            for folder, names in files.items():
+                (xai / folder).mkdir(parents=True)
+                for name in names:
+                    (xai / folder / name).write_bytes(b"")
+            availability = scan_xai_availability(xai)
+            self.assertIn("SmoothGrad", availability["VGG16"])  # counted despite the bad names
+            problems = unmatched_xai_files(xai, availability, ["a", "b.x.1"])
+            self.assertEqual(len(problems), 1)
+            folder, expected, total, bad = problems[0]
+            self.assertEqual(folder, "xai/VGG16/SmoothGrad/high")
+            self.assertEqual(expected, "<basename>_smoothgrad.<ext>")
+            self.assertEqual((total, bad), (3, ["b.x.1_sg.png", "zzz_smoothgrad.png"]))
+
 
 class TestSceneAttributes(unittest.TestCase):
     """Synthetic datasets ship scene_attributes.csv – it replaces the mocked filter values."""
@@ -3790,6 +4101,210 @@ class TestUsageTracking(unittest.TestCase):
         self.assertNotIn(CATALOGS["de"]["privacy.tracking"], plain)
         self.assertIn(CATALOGS["de"]["privacy.tracking"], configured)
         self.assertNotIn(CATALOGS["de"]["privacy.external_text"], configured)
+
+
+class TestStudyMode(unittest.TestCase):
+    """study_user_* logs in with the shared password "study": tracking armed and locked on,
+    quick-notes bar on. Quick notes: Ctrl+S turns the bar's text into a note about the left
+    panel's single image (2026-11-02)."""
+
+    def setUp(self):
+        flask_app.config["TESTING"] = True
+        flask_app.config["SECRET_KEY"] = "test-secret"
+        self.client = flask_app.test_client()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self._orig_notes = NOTES_STORE.path
+        NOTES_STORE.path = Path(self.tmp.name) / "notes.json"
+        self._enabled, self._store = app_module.TRACKING_ENABLED, app_module.TRACKING_STORE
+        self.addCleanup(self._restore)
+        app_module.TRACKING_ENABLED = True
+        app_module.TRACKING_STORE = TrackingStore(Path(self.tmp.name) / "tracking")
+
+    def _restore(self):
+        NOTES_STORE.path = self._orig_notes
+        app_module.TRACKING_ENABLED = self._enabled
+        app_module.TRACKING_STORE = self._store
+
+    def _study_login(self, name="study_user_07", password="study", mode="account"):
+        return self.client.post("/login", data={"mode": mode, "username": name,
+                                                "password": password})
+
+    def _open_project(self):
+        with self.client.session_transaction() as sess:
+            sess["role"] = "validierer"
+            sess["project"] = {"name": "Studie", "type": "test", "dataset": TEST_DATASET,
+                               "created_at": "2026-11-02"}
+        self.client.get("/")
+        _configure(self.client, 1)
+
+    def _notes(self, owner="user:study_user_07"):
+        return NOTES_STORE.list_notes(owner, TEST_DATASET)
+
+    # ── login ─────────────────────────────────────────────────────────────────
+
+    def test_b233__study_login_arms_tracking_and_quick_notes(self):
+        resp = self._study_login(name="Study_User_07")
+        self.assertEqual(resp.status_code, 302)
+        with self.client.session_transaction() as sess:
+            self.assertEqual(sess["owner"], "user:study_user_07")
+            self.assertEqual(sess["user"], "study_user_07")
+            self.assertTrue(sess["study"] and sess["quicknotes"] and sess["tracking"])
+            self.assertTrue(sess.get("tracking_id"))
+
+    def test_b234__study_login_needs_the_study_password(self):
+        self.assertEqual(self._study_login(password="wrong").status_code, 401)
+        guest = self._study_login(password="", mode="guest")
+        self.assertEqual(guest.status_code, 401)
+        self.assertIn(CATALOGS["de"]["login.study_needs_password"], guest.data.decode())
+        with self.client.session_transaction() as sess:
+            self.assertNotIn("user", sess)
+
+    def test_b235__tracking_cannot_be_switched_off_in_study_mode(self):
+        self._study_login()
+        self._open_project()
+        resp = self.client.post("/tracking/toggle")
+        self.assertEqual(resp.headers["X-Tracking"], "on")
+        with self.client.session_transaction() as sess:
+            self.assertTrue(sess.get("tracking"))
+
+    def test_b236__study_login_without_configured_tracking_records_nothing(self):
+        app_module.TRACKING_ENABLED = False
+        self.assertEqual(self._study_login().status_code, 302)
+        with self.client.session_transaction() as sess:
+            self.assertTrue(sess["study"])
+            self.assertNotIn("tracking", sess)
+
+    # ── quick notes ───────────────────────────────────────────────────────────
+
+    def test_b237__quick_note_needs_the_left_panel_in_single_view(self):
+        self._study_login()
+        self._open_project()
+        body = self.client.get("/").data.decode()
+        self.assertIn('id="quicknote-text"', body)
+        self.assertIsNone(_page_data(body)["quicknote"])
+        resp = self.client.post("/quicknote", data={"text": "Hallo"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("data-note-id", resp.data.decode())
+        self.assertEqual(self._notes(), [])
+
+    def test_b238__quick_note_becomes_an_ordinary_note_and_a_resave_updates_it(self):
+        self._study_login()
+        self._open_project()
+        body = self.client.post("/panel/1/open/2").data.decode()
+        image_id = METADATA["images"][2]["id"]     # unfiltered panel → dataset order
+        self.assertEqual(_page_data(body)["quicknote"]["title"], "QuickNote-IMG#3")
+        resp = self.client.post("/quicknote", data={"text": "  Seltsame Heatmap  "}).data.decode()
+        note_id = int(re.search(r'data-note-id="(\d+)"', resp).group(1))
+        [note] = self._notes()
+        self.assertEqual((note["id"], note["title"], note["text"]),
+                         (note_id, "QuickNote-IMG#3", "Seltsame Heatmap"))
+        self.assertEqual([rp["type"] for rp in note["refpoints"]], ["image", "workspace"])
+        self.assertEqual(note["refpoints"][0]["image_id"], image_id)
+        # The field keeps its text; saving again updates instead of adding a second note.
+        self.client.post("/quicknote", data={"text": "Seltsame Heatmap, oben links",
+                                             "note_id": note_id})
+        [note] = self._notes()
+        self.assertEqual(note["text"], "Seltsame Heatmap, oben links")
+        # Another image: the old note id no longer matches → a new note.
+        self.client.post("/panel/1/step/next")
+        self.client.post("/quicknote", data={"text": "Nächstes", "note_id": note_id})
+        self.assertEqual(sorted(n["title"] for n in self._notes()),
+                         ["QuickNote-IMG#3", "QuickNote-IMG#4"])
+
+    def test_b239__quick_notes_switch_in_the_dock_for_everyone(self):
+        _auth_session(self.client)
+        self.client.get("/")
+        _configure(self.client, 1)
+        page = self.client.get("/").data.decode()
+        self.assertNotIn('id="quicknote-text"', page)
+        self.assertIn('id="quicknotes-switch"', self.client.get("/notes").data.decode())
+        on = self.client.post("/quicknotes/toggle").data.decode()
+        self.assertIn('id="quicknote-text"', on)          # bar out of band
+        self.assertIn('id="workspace" hx-swap-oob="true"', on)
+        self.client.post("/panel/1/open/0")
+        self.assertIsNotNone(_page_data(self.client.get("/").data.decode())["quicknote"])
+        off = self.client.post("/quicknotes/toggle").data.decode()
+        self.assertNotIn('id="quicknote-text"', off)
+        self.assertIsNone(_page_data(self.client.get("/").data.decode())["quicknote"])
+
+
+
+class TestFilterExclusion(unittest.TestCase):
+    """Excluded category options: "images WITHOUT trees" (tri-state checkboxes)."""
+
+    META = {"predictions": {}, "images": [
+        {"id": "a", "true_class": "x", "attributes": {"objekte": ["mensch", "gebaeude"]}},
+        {"id": "b", "true_class": "x", "attributes": {"objekte": ["mensch"]}},
+        {"id": "c", "true_class": "x", "attributes": {"objekte": []}},
+        {"id": "d", "true_class": "x", "attributes": {}},
+    ]}
+
+    def setUp(self):
+        flask_app.config["TESTING"] = True
+        flask_app.config["SECRET_KEY"] = "test-secret"
+        self.client = flask_app.test_client()
+        _auth_session(self.client)
+        self.client.get("/")
+
+    def _passing(self, cfg):
+        return [i["id"] for i in self.META["images"] if image_passes_filter(i["attributes"], cfg)]
+
+    def test_b241__an_excluded_option_drops_every_image_carrying_it_in_either_mode(self):
+        cfg = empty_filter_config()
+        cfg["excluded"] = {"objekte": ["gebaeude"]}
+        self.assertEqual(self._passing(cfg), ["b", "c", "d"])   # empty/missing = "without" (Q3a)
+        cfg["objekte"] = ["mensch"]
+        self.assertEqual(self._passing(cfg), ["b"])
+        cfg["category_modes"] = {"objekte": "and"}
+        self.assertEqual(self._passing(cfg), ["b"])
+        del cfg["excluded"]                                     # older configurations: no exclusion
+        self.assertEqual(self._passing(cfg), ["a", "b"])
+
+    def test_b242__an_excluded_option_counts_the_images_left_without_it(self):
+        cfg = empty_filter_config()
+        cfg["excluded"] = {"objekte": ["gebaeude"]}
+        counts = app_module._faceted_counts(self.META, "m", "l", cfg)
+        self.assertEqual(counts["remaining"]["objekte"], 3)
+        self.assertEqual(counts["categories"]["objekte"], {"mensch": 1})  # exclusion holds in its facet
+
+    def test_b243__form_parsing_and_summary(self):
+        with flask_app.test_request_context(data={
+                "filter_objekte": ["mensch", "gebaeude"], "exclude_objekte": ["gebaeude", "bogus"]},
+                method="POST"):
+            from flask import request
+            filters = app_module._filters_from_form(request.form)
+            self.assertEqual(filters["objekte"], ["mensch"])
+            self.assertEqual(filters["excluded"], {"objekte": ["gebaeude"]})
+            summary = " | ".join(app_module._filter_summary(filters))
+        self.assertIn("Mensch, ohne Gebäude", summary)
+
+    def test_b244__dialog_keeps_the_exclusion_and_counts_show_the_remainder(self):
+        excluded = next(v for i in METADATA["images"] for v in i["attributes"].get("objekte", []))
+        without = sum(1 for i in METADATA["images"] if excluded not in i["attributes"].get("objekte", []))
+        self.client.post("/panel/1/config", data={"exclude_objekte": excluded})
+        page = self.client.get("/panel/1/config").get_data(as_text=True)
+        self.assertRegex(page, rf'id="f-objekte-{excluded}"\s[^>]*data-excluded')
+        self.assertRegex(page, rf'name="exclude_objekte" value="{excluded}"\s*>')   # enabled twin
+        body = self.client.post("/panel/1/filter-counts",
+                                data={"exclude_objekte": excluded}).get_data(as_text=True)
+        self.assertIn(f'id="cnt-objekte-{excluded}" hx-swap-oob="true">({without})', body)
+        panel = self.client.post("/panel/1/gallery").get_data(as_text=True)
+        self.assertRegex(panel, rf"\b{without} Bilder?\b")
+
+
+class TestDevServerHelp(unittest.TestCase):
+    """`python app.py --help` lists the environment variables the app reads."""
+
+    def test_b240__help_lists_every_environment_variable_the_app_reads(self):
+        app_dir = Path(app_module.__file__).parent
+        read = set()
+        for path in app_dir.glob("*.py"):
+            read |= set(re.findall(r"""environ\.get\(\s*["'](XAI_\w+)["']""", path.read_text()))
+        listed = {name for name, _cfg, _meaning in app_module.ENV_VARS}
+        self.assertTrue(read)                       # the scan itself must find something
+        self.assertEqual(read, listed)
+        self.assertIn("XAI_DEMO_MODE", app_module._env_help())
 
 
 if __name__ == "__main__":

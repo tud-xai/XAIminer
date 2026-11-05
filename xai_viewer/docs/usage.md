@@ -197,6 +197,11 @@ Konfidenzen.
   **Dateiname**,
 - der Galerie-Knopf (Raster-Symbol) führt zurück.
 
+Ein **Klick auf das Bild** zeigt es in der **Großansicht**: so groß, wie der Bildschirm es
+zulässt, darunter wahre Klasse, Vorhersage und Dateiname. Kleine Bilder (etwa Heatmaps) werden
+dabei bewusst pixelig vergrößert, damit ihre tatsächliche Auflösung erkennbar bleibt. **Esc**, ein
+Klick oder × schließen die Großansicht; solange sie offen ist, ruhen die Tastenkürzel.
+
 Das jeweils nächste Bild wird im Hintergrund vorgeladen; Weiterblättern ist deshalb schnell.
 
 ## 6. Vergleichen mit einem zweiten Panel
@@ -254,13 +259,28 @@ Filter werden im Konfigurationsdialog jedes Panels gesetzt und gelten nur für d
 **Szenenattribute** — *Umgebung*, *Objekte*, *Tageszeit*, *Wetter* (die genauen Kategorien
 kann ein Datensatz selbst mitbringen):
 
-- **Innerhalb einer Kategorie ODER**, **zwischen Kategorien UND.** *Umgebung: Bahnhof,
-  Stadt* + *Wetter: Regen* bedeutet „(Bahnhof oder Stadt) und Regen".
+- **Zwischen Kategorien gilt immer UND.** *Umgebung: Bahnhof oder Stadt* + *Wetter: Regen*
+  bedeutet „(Bahnhof oder Stadt) und Regen".
+- **Innerhalb einer Kategorie** bestimmt der Umschalter neben ihrem Namen, wie die Häkchen
+  zusammenwirken. Die Kreise zeigen, welche Bilder übrig bleiben:
+  - **Links, beide Kreise gefüllt (Vereinigung, Standard):** Ein Häkchen genügt. Mehr Häkchen
+    ergeben mehr Bilder.
+  - **Rechts, nur die Überschneidung gefüllt (Schnittmenge):** Ein Bild muss alle angehakten
+    Werte tragen. Mehr Häkchen ergeben weniger Bilder.
 - Ein Bild kann in einer Kategorie mehrere Werte tragen (z. B. Semi-Urban **und**
-  Bahnübergang).
-- Die Zahl hinter jeder Option aktualisiert sich beim Ankreuzen. Sie berücksichtigt alle
-  *anderen* gesetzten Filter, nicht die eigene Kategorie — sie beantwortet also „wie viele
-  Bilder kämen hinzu, wenn ich diese Option auch wähle".
+  Bahnübergang). Nur deshalb ist die Schnittmenge überhaupt sinnvoll.
+- Die Zahl hinter jeder Option aktualisiert sich beim Ankreuzen und berücksichtigt alle
+  *anderen* gesetzten Filter. Bei der Vereinigung nennt sie, wie viele Bilder diese Option
+  trägt; davon können manche schon über ein anderes Häkchen ausgewählt sein. Bei der
+  Schnittmenge nennt sie, wie viele Bilder übrig bleiben, wenn diese Option ebenfalls
+  angehakt ist.
+- **Werte ausschließen:** Ein zweiter Klick auf ein Häkchen macht daraus ein rotes Kreuz, der
+  Name wird durchgestrichen. Dann fällt jedes Bild heraus, das diesen Wert trägt, z. B.
+  *Objekte: ohne Gebäude*. Ein dritter Klick setzt die Option zurück. Ausschlüsse gelten
+  unabhängig vom Umschalter (der regelt nur die Häkchen) und lassen sich mit Häkchen
+  kombinieren: *Mensch, ohne Gebäude*. Bei einem ausgeschlossenen Wert nennt die Zahl, wie
+  viele Bilder **ohne** ihn übrig bleiben. Ein Bild ganz ohne Eintrag in der Kategorie zählt
+  als „ohne".
 
 > **Hinweis zur Datenlage:** Sind für einen Datensatz keine Handlabels hinterlegt, sind diese
 > Attribute **Platzhalterwerte**. Die Filter funktionieren dann technisch, sagen inhaltlich
@@ -404,7 +424,8 @@ Eine Sammlung ist ein **fester Schnappschuss** einer Bildmenge. Anders als ein F
 sie sich nicht, wenn sich Filter oder Daten ändern — sie bleibt „die Bilder, über die ich
 gesprochen habe".
 
-**Entstehen** aus Zellen der Konfusionsmatrix ([Abschnitt 13](#13-modellüberblick-und-konfusionsmatrix)).
+**Entstehen** aus Zellen der Konfusionsmatrix ([Abschnitt 13](#13-modellüberblick-und-konfusionsmatrix))
+oder leer in der Verwaltung (*Neue leere Sammlung*, siehe *Schnell sortieren* unten).
 
 **Verwenden:** im Konfigurationsdialog eines Panels als *Basisbilderquelle* wählen oder in der
 Verwaltung **Öffnen** (neues Panel).
@@ -424,6 +445,25 @@ Veränderung geschützt — sonst würde die Notiz nachträglich über etwas and
 Verändernde Aktionen (Bilder hinzufügen/entfernen) legen dann automatisch eine **Kopie** an,
 Löschen wird verweigert, Umbenennen bleibt erlaubt. Die Verwaltung zeigt, welche Notizen die
 Sammlung referenzieren.
+
+**Schnell sortieren mit A und D:** Um viele Bilder nacheinander in „behalten" und „aussortieren"
+aufzuteilen (etwa bei der Auswahl von Bildern für eine Studie), oben in der Verwaltung zwei
+Zielsammlungen wählen — bei Bedarf vorher mit *Neue leere Sammlung* anlegen — und
+**Übernehmen**. Danach im **linken Panel** ein Bild in der Einzelbildansicht öffnen:
+
+- **A** legt das gezeigte Bild in die Behalten-Sammlung, **D** in die Aussortieren-Sammlung; das
+  Panel springt zum nächsten Bild (gekoppelte Panels mit). Ein Bild liegt nie in beiden — wer
+  umentscheidet, verschiebt es.
+- Unten erscheint für drei Sekunden eine Meldung, welches Bild wohin kam.
+- **Strg+Z** macht die letzten Schritte nacheinander rückgängig und springt zum betroffenen Bild
+  zurück. Der Verlauf gilt bis zum Neuladen der Seite.
+- Die Kopfleiste zeigt, wohin A und D gerade sortieren; ein Klick öffnet die Verwaltung, das
+  **×** daneben schaltet das Schnellsortieren aus (ebenso *Ausschalten* in der Verwaltung). Die
+  Sammlungen bleiben dabei unverändert.
+
+Von Notizen referenzierte Sammlungen (🔒) sind als Ziel ausgeschlossen. Die Ziele gelten je
+Datensatz und bleiben über Ab- und Neuanmelden erhalten, auch auf einem anderen Gerät mit demselben
+Konto (nicht bei Gastzugängen: jede Gastanmeldung ist eine neue, leere Sandbox).
 
 ## 15. Notizen und Bezugspunkte
 
@@ -446,6 +486,23 @@ haben:
 - Beim **Bearbeiten** lassen sich bestehende Bezugspunkte per Haken entfernen und eine
   gespeicherte Panel-Konfiguration **auf den aktuellen Arbeitsstand aktualisieren**.
 - Ungespeicherte Änderungen werden vor dem Verwerfen abgefragt.
+
+**Schnellnotizen.** Der Schalter *Schnellnotizen* im Notiz-Dock blendet unter den Panels ein
+Textfeld ein. Zeigt das **linke Panel ein Einzelbild**, wird der Text mit **Strg+S** (oder
+*Speichern*) zur Notiz `QuickNote-IMG#<Nr.>`, wobei die Nummer die Position des Bildes im ganzen
+Datensatz ist. Bezugspunkte sind das Bild (samt Darstellung) und die gesamte Panel-Konfiguration.
+Der Text bleibt nach dem Speichern stehen; erneutes Speichern aktualisiert dieselbe Notiz. Beim
+Wechsel des Bildes wird ein gespeicherter Text geleert, ein noch nicht gespeicherter bleibt
+stehen und würde zur Notiz über das neue Bild. Danach ist es eine gewöhnliche Notiz, im Dock
+bearbeit- und löschbar. Damit das Feld ohne Scrollen sichtbar bleibt, ist das Einzelbild in
+diesem Modus nie breiter als bei vier Panels nebeneinander.
+
+**Eigene Daten herunterladen:** *Herunterladen* im Notiz-Dock (oder unten in der
+Sammlungsverwaltung) liefert eine JSON-Datei mit **allen** eigenen Notizen und Sammlungen über
+alle Datensätze hinweg, dazu eigene Anforderungskataloge. Das Format ist für die Übertragung in
+ein anderes Konto gedacht (das Hochladen gibt es noch nicht): Kontokennungen sind entfernt, die
+Nummern von Notizen und Sammlungen bleiben erhalten, damit Verweise beim Einlesen neu zugeordnet
+werden können. Die Formatbeschreibung steht in `xai_viewer/data_export.py`.
 
 ## 16. Anforderungen und Prüfbericht
 
@@ -518,10 +575,15 @@ ob die Erklärung auf das Relevante zeigt — oder ob das Modell „rät".
 |---|---|---|
 | **← / →** | alle gekoppelten Panels in der Einzelbildansicht ein Bild zurück / vor | Arbeitsbereich |
 | **n** | Notiz-Dock öffnen | überall im Arbeitsbereich |
+| **A / D** | Bild im linken Panel in die Behalten- / Aussortieren-Sammlung legen, dann weiter ([Abschnitt 14](#14-sammlungen)) | Arbeitsbereich, linkes Panel in der Einzelbildansicht |
+| **Strg+S** | Schnellnotiz speichern ([Abschnitt 15](#15-notizen-und-bezugspunkte)) | Textfeld der Schnellnotizen |
+| **Strg+Z** | letztes A/D rückgängig machen (mehrfach möglich) | Arbeitsbereich |
 | **Esc** | oberste Ebene schließen: Auswahldialog → Anforderungs-Legende → offenes Notizformular (abbrechen) → Notiz-Dock | Arbeitsbereich |
 
-Einzeltasten wirken nicht, solange der Cursor in einem Eingabefeld steht — dort wird getippt.
-**Esc** wirkt immer.
+Einzeltasten und **Strg+Z** wirken nicht, solange der Cursor in einem Eingabefeld steht — dort
+wird getippt bzw. der Text rückgängig gemacht. A, D und Strg+Z ruhen außerdem, solange ein Dialog
+offen ist; in der Großansicht eines Einzelbilds ruhen alle Kürzel außer **Esc**, das sie
+schließt. **Esc** wirkt immer.
 
 ## 19. Besonderheiten der öffentlichen Demo
 

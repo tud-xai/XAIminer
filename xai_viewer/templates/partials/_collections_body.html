@@ -3,6 +3,49 @@
   <div class="alert alert-{{ notice.kind }} py-2 small" role="alert">{{ notice.text }}</div>
 {% endif %}
 
+{# ── quick sort: which collections the keys A and D file the left panel's image into ── #}
+<div class="card mb-3 border-info">
+  <div class="card-body p-2">
+    <div class="small fw-semibold mb-1"><i class="bi bi-keyboard"></i> {{ t('quicksort.heading') }}</div>
+    <div class="form-text mt-0 mb-2">{{ t('quicksort.intro') }}</div>
+    <form class="d-flex align-items-center flex-wrap gap-2"
+          hx-post="/quicksort/targets" hx-target="#collections-body" hx-swap="innerHTML">
+      {% for side, key, label in (("keep", "A", t('quicksort.label_keep')), ("drop", "D", t('quicksort.label_drop'))) %}
+        <label class="small d-flex align-items-center gap-1">
+          <kbd>{{ key }}</kbd> {{ label }}
+          <select class="form-select form-select-sm" name="{{ side }}" style="max-width: 16rem;">
+            <option value="">{{ t('quicksort.none') }}</option>
+            {% for c in collections %}
+              <option value="{{ c.id }}" {{ 'selected' if c.id == quicksort_ids[side] }}
+                      {{ 'disabled' if c.frozen }}>
+                {{ '🔒 ' if c.frozen }}{{ c.title }} ({{ nt(c.count, 'gallery.image_count') }})
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endfor %}
+      <button type="submit" class="btn btn-sm btn-outline-primary py-0">{{ t('quicksort.save') }}</button>
+      {% if quicksort_ids.keep is not none or quicksort_ids.drop is not none %}
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                title="{{ t('quicksort.off_title') }}"
+                hx-post="/quicksort/off" hx-target="#collections-body" hx-swap="innerHTML">
+          <i class="bi bi-x-lg"></i> {{ t('quicksort.off') }}
+        </button>
+      {% endif %}
+    </form>
+    <form class="d-flex align-items-center flex-wrap gap-1 mt-2"
+          hx-post="/quicksort/new-collection" hx-target="#collections-body" hx-swap="innerHTML">
+      <span class="small">{{ t('quicksort.new_label') }}</span>
+      <input type="text" class="form-control form-control-sm" name="title" maxlength="100"
+             placeholder="{{ t('quicksort.new_placeholder') }}" style="max-width: 16rem;"
+             aria-label="{{ t('quicksort.new_label') }}">
+      <button type="submit" class="btn btn-sm btn-outline-secondary py-0">
+        <i class="bi bi-plus-lg"></i> {{ t('quicksort.new') }}
+      </button>
+    </form>
+  </div>
+</div>
+
 {% for c in collections %}
   <div class="card mb-3">
     <div class="card-body p-2">
@@ -23,6 +66,11 @@
           </button>
         </form>
         <span class="badge text-bg-light border">{{ nt(c.count, 'gallery.image_count') }}</span>
+        {% for side, key, label in (("keep", "A", t('quicksort.label_keep')), ("drop", "D", t('quicksort.label_drop'))) if c.id == quicksort_ids[side] %}
+          <span class="badge text-bg-info" title="{{ label }}">
+            <i class="bi bi-keyboard"></i> {{ key }}
+          </span>
+        {% endfor %}
         <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1"
                 title="{{ t('collection.open_panel_title') }}"
                 hx-post="/collections/{{ c.id }}/open-panel"
